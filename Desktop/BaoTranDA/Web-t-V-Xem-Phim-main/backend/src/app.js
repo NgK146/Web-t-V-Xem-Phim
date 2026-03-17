@@ -7,6 +7,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 
 import authRoutes from './routes/auth.routes.js';
+import userRoutes from './routes/user.routes.js';
 import movieRoutes from './routes/movie.routes.js';
 import cinemaRoutes from './routes/cinema.routes.js';
 import showtimeRoutes from './routes/showtime.routes.js';
@@ -34,6 +35,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth',      authRoutes);
+app.use('/api/users',     userRoutes);
 app.use('/api/movies',    movieRoutes);
 app.use('/api/cinemas',   cinemaRoutes);
 app.use('/api/showtimes', showtimeRoutes);

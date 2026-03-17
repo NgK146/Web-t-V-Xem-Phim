@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema({
   refreshToken: { type: String, select: false },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
+  isBanned: { type: Boolean, default: false },
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {
