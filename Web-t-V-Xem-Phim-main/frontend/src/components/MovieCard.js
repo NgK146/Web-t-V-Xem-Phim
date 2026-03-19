@@ -1,25 +1,31 @@
 import React from 'react';
 
-const MovieCard = ({ movie, onClick }) => {
-  const { title, poster, genre, rated, duration, status } = movie;
+const BACKEND_URL = 'http://localhost:5001';
 
-  // Xử lý đường dẫn poster
-  const posterSrc = poster ? (poster.startsWith('http') ? poster : `http://localhost:5001${poster}`) : 'https://via.placeholder.com/300x450?text=No+Poster';
+const MovieCard = ({ movie }) => {
+  const { title, poster, genre, rated, duration } = movie;
+  const posterSrc = poster ? (poster.startsWith('http') ? poster : `${BACKEND_URL}${poster}`) : 'https://via.placeholder.com/300x450?text=No+Poster';
 
   return (
-    <div className="movie-card" onClick={() => onClick && onClick(movie._id)}>
-      <img src={posterSrc} alt={title} className="movie-card-poster" />
-      <div className={`movie-card-badge status-${status}`}>
-        {status === 'now_showing' ? 'Đang chiếu' : 'Sắp chiếu'}
+    <div className="movie-card">
+      <div className="movie-card-poster-wrap">
+        <img src={posterSrc} alt={title} className="movie-card-poster" />
+        <div className={`movie-card-badge rated-${rated || 'P'}`}>
+          {rated || 'P'}
+        </div>
+        <div className="movie-overlay">
+          <button className="overlay-btn btn-detail">Xem Chi Tiết</button>
+          <button className="overlay-btn btn-book">Mua Vé</button>
+        </div>
       </div>
       <div className="movie-card-info">
         <h3 className="movie-card-title">{title}</h3>
-        <div className="movie-card-genre">{genre?.join(', ')}</div>
         <div className="movie-card-meta">
-          <span className="movie-duration">{duration} phút</span>
-          <span className={`movie-rated rated-${rated}`}>{rated}</span>
+          <span>{genre?.join(', ')}</span>
         </div>
-        <button className="movie-card-action">Đặt vé ngay</button>
+        <div className="movie-card-meta">
+          <span>{duration} phút</span>
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { moviesApi } from '../api/movies.api';
 import MovieCard from '../components/MovieCard';
 import MovieFilters from '../components/MovieFilters';
+import HeroSlider from '../components/HeroSlider';
 import { toast } from 'react-toastify';
 
 const Home = () => {
@@ -14,8 +15,8 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     q: '',
-    genre: '',
     status: 'now_showing',
+    genre: '',
     rated: '',
     page: 1,
     limit: 12
@@ -37,7 +38,7 @@ const Home = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchMovies();
-    }, 500); // Debounce search
+    }, 500);
     return () => clearTimeout(timer);
   }, [fetchMovies]);
 
@@ -50,45 +51,36 @@ const Home = () => {
     setFilters(newFilters);
   };
 
-  const handleMovieClick = (id) => {
-    // navigate(`/movie/${id}`); // Giả sử có trang chi tiết phim sau này
-    toast.info('Tính năng chi tiết phim đang được phát triển');
-  };
-
   return (
     <div className="home-container">
-      {/* Header Section */}
-      <header style={{ 
-        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)', 
-        color: '#fff', 
-        padding: '1rem 2rem',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h2 style={{ margin: 0, cursor: 'pointer' }} onClick={() => navigate('/')}>Cinema App</h2>
+      {/* CGV Header */}
+      <header className="cgv-header">
+        <div className="header-top">
           {user?.role === 'admin' && (
-            <button 
-              onClick={() => navigate('/admin')} 
-              className="btn-primary" 
-              style={{ padding: '6px 12px', fontSize: '14px', width: 'auto' }}
-            >
-              Quản trị
-            </button>
+            <span onClick={() => navigate('/admin')} style={{ cursor: 'pointer', color: '#fff', fontWeight: 'bold' }}>
+              QUẢN TRỊ VIÊN
+            </span>
           )}
-        </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span>Chào, <strong>{user?.name}</strong></span>
-          <button onClick={handleLogout} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '14px' }}>
-            Đăng xuất
-          </button>
+          <span onClick={handleLogout} style={{ cursor: 'pointer' }}>Thoát</span>
+        </div>
+        <div className="header-main">
+          <div className="cgv-logo" onClick={() => navigate('/')}>CGV</div>
+          <nav className="cgv-nav">
+            <div className="nav-link">Phim</div>
+            <div className="nav-link">Rạp CGV</div>
+            <div className="nav-link">Thành Viên</div>
+            <div className="nav-link">Cultureplex</div>
+          </nav>
+          <button className="overlay-btn" style={{ width: 'auto', padding: '10px 30px' }}>Mua Vé</button>
         </div>
       </header>
 
+      {/* Hero Slider */}
+      <HeroSlider />
+
       <main className="movie-section">
-        <h1 style={{ marginBottom: '2rem', color: '#1a1a2e' }}>Phim Đang Chiếu & Sắp Chiếu</h1>
+        <div className="section-title">Movie Selection</div>
         
         <MovieFilters filters={filters} onFilterChange={handleFilterChange} />
 
@@ -103,7 +95,6 @@ const Home = () => {
                 <MovieCard 
                   key={movie._id} 
                   movie={movie} 
-                  onClick={handleMovieClick}
                 />
               ))
             ) : (
@@ -115,8 +106,45 @@ const Home = () => {
         )}
       </main>
       
-      <footer style={{ textAlign: 'center', padding: '2rem', color: '#888', borderTop: '1px solid #eee', marginTop: '4rem' }}>
-        <p>&copy; 2026 Cinema App - Duy Nguyen</p>
+      {/* CGV Footer */}
+      <footer className="cgv-footer">
+        <div className="footer-content">
+          <div className="footer-col">
+            <h3>CGV Việt Nam</h3>
+            <ul>
+              <li>Giới Thiệu</li>
+              <li>Tiện Ích Online</li>
+              <li>Thẻ Quà Tặng</li>
+              <li>Tuyển Dụng</li>
+            </ul>
+          </div>
+          <div className="footer-col">
+            <h3>Điều Khoản</h3>
+            <ul>
+              <li>Điều Khoản Chung</li>
+              <li>Chính Sách Thanh Toán</li>
+              <li>Chính Sách Bảo Mật</li>
+              <li>Câu Hỏi Thường Gặp</li>
+            </ul>
+          </div>
+          <div className="footer-col">
+            <h3>Kết Nối</h3>
+            <ul>
+              <li>Facebook</li>
+              <li>Youtube</li>
+              <li>Instagram</li>
+              <li>Zalo</li>
+            </ul>
+          </div>
+          <div className="footer-col">
+            <h3>Chăm Sóc</h3>
+            <ul>
+              <li>Hotline: 1900 6017</li>
+              <li>Giờ làm việc: 8:00 - 22:00</li>
+              <li>Email: hoidap@cgv.vn</li>
+            </ul>
+          </div>
+        </div>
       </footer>
     </div>
   );

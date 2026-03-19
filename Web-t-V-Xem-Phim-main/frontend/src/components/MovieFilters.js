@@ -2,11 +2,13 @@ import React from 'react';
 
 const MovieFilters = ({ filters, onFilterChange }) => {
   const genres = [
-    'Hành động', 'Hài hước', 'Kinh dị', 'Lãng mạn', 'Hoạt hình', 
-    'Phiêu lưu', 'Viễn tưởng', 'Tâm lý', 'Gia đình'
+    'Hành động', 'Hài hước', 'Hoạt hình', 'Kinh dị', 'Phiêu lưu', 'Viễn tưởng'
   ];
-
   const ratings = ['P', 'K', 'T13', 'T16', 'T18'];
+
+  const handleStatusChange = (status) => {
+    onFilterChange({ ...filters, status });
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -14,64 +16,79 @@ const MovieFilters = ({ filters, onFilterChange }) => {
   };
 
   return (
-    <div className="filters-container">
-      <div className="filter-group">
-        <label htmlFor="q">Tìm kiếm</label>
+    <div className="movie-filters-cgv">
+      <div className="movie-tabs">
+        <button 
+          className={`tab-btn ${filters.status === 'now_showing' ? 'active' : ''}`}
+          onClick={() => handleStatusChange('now_showing')}
+        >
+          Phim Đang Chiếu
+        </button>
+        <button 
+          className={`tab-btn ${filters.status === 'coming_soon' ? 'active' : ''}`}
+          onClick={() => handleStatusChange('coming_soon')}
+        >
+          Phim Sắp Chiếu
+        </button>
+      </div>
+
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: '15px', 
+        marginBottom: '3rem',
+        flexWrap: 'wrap'
+      }}>
         <input
           type="text"
-          id="q"
           name="q"
-          className="filter-input"
-          placeholder="Nhập tên phim..."
+          placeholder="Tìm tên phim..."
           value={filters.q || ''}
           onChange={handleChange}
+          className="filter-input"
+          style={{ 
+            width: '100%', 
+            maxWidth: '300px', 
+            borderRadius: '25px', 
+            padding: '10px 20px',
+            border: '2px solid #ddd'
+          }}
         />
-      </div>
-
-      <div className="filter-group">
-        <label htmlFor="genre">Thể loại</label>
+        
         <select
-          id="genre"
           name="genre"
-          className="filter-select"
           value={filters.genre || ''}
           onChange={handleChange}
+          className="filter-select-cgv"
+          style={{
+            padding: '10px 20px',
+            borderRadius: '25px',
+            border: '2px solid #ddd',
+            background: '#fff',
+            cursor: 'pointer',
+            minWidth: '150px'
+          }}
         >
           <option value="">Tất cả thể loại</option>
-          {genres.map((g) => (
-            <option key={g} value={g}>{g}</option>
-          ))}
+          {genres.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
-      </div>
 
-      <div className="filter-group">
-        <label htmlFor="status">Trạng thái</label>
         <select
-          id="status"
-          name="status"
-          className="filter-select"
-          value={filters.status || ''}
-          onChange={handleChange}
-        >
-          <option value="">Tất cả</option>
-          <option value="now_showing">Đang chiếu</option>
-          <option value="coming_soon">Sắp chiếu</option>
-        </select>
-      </div>
-
-      <div className="filter-group">
-        <label htmlFor="rated">Phân loại độ tuổi</label>
-        <select
-          id="rated"
           name="rated"
-          className="filter-select"
           value={filters.rated || ''}
           onChange={handleChange}
+          className="filter-select-cgv"
+          style={{
+            padding: '10px 20px',
+            borderRadius: '25px',
+            border: '2px solid #ddd',
+            background: '#fff',
+            cursor: 'pointer',
+            minWidth: '150px'
+          }}
         >
-          <option value="">Tất cả</option>
-          {ratings.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
+          <option value="">Tất cả độ tuổi</option>
+          {ratings.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
     </div>
