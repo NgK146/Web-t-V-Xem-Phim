@@ -1,13 +1,14 @@
-import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const BACKEND_URL = 'http://localhost:5001';
 
 const MovieCard = ({ movie }) => {
-  const { title, poster, genre, rated, duration } = movie;
+  const navigate = useNavigate();
+  const { _id, title, poster, genre, rated, duration, avgRating } = movie;
   const posterSrc = poster ? (poster.startsWith('http') ? poster : `${BACKEND_URL}${poster}`) : 'https://via.placeholder.com/300x450?text=No+Poster';
 
   return (
-    <div className="movie-card">
+    <div className="movie-card" onClick={() => navigate(`/movie/${_id}`)}>
       <div className="movie-card-poster-wrap">
         <img src={posterSrc} alt={title} className="movie-card-poster" />
         <div className={`movie-card-badge rated-${rated || 'P'}`}>
@@ -21,10 +22,11 @@ const MovieCard = ({ movie }) => {
       <div className="movie-card-info">
         <h3 className="movie-card-title">{title}</h3>
         <div className="movie-card-meta">
-          <span>{genre?.join(', ')}</span>
+          <span>⭐ {avgRating || 0}/10</span>
+          <span>• {duration} phút</span>
         </div>
         <div className="movie-card-meta">
-          <span>{duration} phút</span>
+          <span>{genre?.join(', ')}</span>
         </div>
       </div>
     </div>
