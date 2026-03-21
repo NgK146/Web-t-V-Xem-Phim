@@ -649,7 +649,7 @@ body {
   margin: 0 auto;
   position: relative;
   overflow: hidden;
-  height: 450px;
+  height: 500px;
   background: #000;
 }
 
@@ -661,6 +661,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
 }
 
 /* Movie List Section */

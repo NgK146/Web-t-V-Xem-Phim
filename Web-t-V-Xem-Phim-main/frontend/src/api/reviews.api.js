@@ -1,14 +1,7 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:5001/api/reviews';
-
-const axiosInstance = axios.create({
-  baseURL: API_URL,
-  withCredentials: true,
-});
+import api from './axios';
 
 export const reviewsApi = {
-  getMovieReviews: (movieId) => axiosInstance.get(`/movie/${movieId}`),
-  createReview: (reviewData) => axiosInstance.post('/', reviewData),
-  deleteReview: (reviewId) => axiosInstance.delete(`/${reviewId}`),
+  getMovieReviews: (movieId) => api.get(`/reviews/movie/${movieId}`),
+  createReview: (reviewData) => api.post('/reviews', reviewData),
+  deleteReview: (reviewId) => api.delete(`/reviews/${reviewId}`),
 };

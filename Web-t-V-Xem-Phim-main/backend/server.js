@@ -1,4 +1,5 @@
 import 'dotenv/config';
+
 import httpServer from './src/app.js';
 import connectDB from './src/config/db.js';
 

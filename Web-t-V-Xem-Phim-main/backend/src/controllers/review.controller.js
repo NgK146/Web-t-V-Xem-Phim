@@ -2,6 +2,7 @@ import Review from '../models/Review.js';
 import Movie from '../models/Movie.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
+import { sendEmail } from '../services/email.service.js';
 
 /**
  * @desc  Tạo đánh giá mới cho phim
@@ -29,6 +30,20 @@ export const createReview = async (req, res, next) => {
 
     // Cập nhật rating trung bình của phim
     await Movie.calcAverageRatings(movieId);
+
+    // Gửi email thông báo cho admin (không chặn response)
+    const movieDoc = await Movie.findById(movieId).select('title');
+    sendEmail({
+      to: process.env.ADMIN_EMAIL,
+      subject: `Đánh giá mới: ${movieDoc?.title || 'Phim'}`,
+      template: 'reviewNotification',
+      data: {
+        userName: req.user.name,
+        movieTitle: movieDoc?.title || 'N/A',
+        rating: Number(rating),
+        comment,
+      },
+    }).catch(err => console.error('Lỗi gửi email thông báo đánh giá:', err));
 
     res.status(201).json(new ApiResponse(201, review, 'Đã gửi đánh giá thành công'));
   } catch (err) { next(err); }
