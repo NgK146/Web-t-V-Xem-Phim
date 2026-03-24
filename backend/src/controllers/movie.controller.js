@@ -54,10 +54,8 @@ export const createMovie = async (req, res, next) => {
   try {
     let posterUrl = '';
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'cinema/posters',
-      });
-      posterUrl = result.secure_url;
+      // Save poster locally — serve via /uploads/posters/
+      posterUrl = `/uploads/posters/${req.file.filename}`;
     }
 
     const movie = await Movie.create({ ...req.body, poster: posterUrl });

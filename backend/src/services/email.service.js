@@ -26,6 +26,13 @@ const templates = {
     <p><a href="${resetUrl}">Nhấn vào đây để đặt lại mật khẩu</a></p>
     <p>Link có hiệu lực trong 10 phút.</p>
   `,
+  reviewNotification: ({ userName, movieTitle, rating, comment }) => `
+    <h2>🎬 Đánh giá mới cho phim "${movieTitle}"</h2>
+    <p><strong>Người đánh giá:</strong> ${userName}</p>
+    <p><strong>Điểm:</strong> ⭐ ${rating}/10</p>
+    <p><strong>Nhận xét:</strong> ${comment || '(Không có nhận xét)'}</p>
+    <p style="color:#888;font-size:12px">Email này được gửi tự động từ CinemaHub.</p>
+  `,
 };
 
 /**

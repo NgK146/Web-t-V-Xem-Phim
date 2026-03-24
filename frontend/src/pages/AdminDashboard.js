@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../store/authStore';
 import api from '../api/axios';
+import AdminMovies from '../components/AdminMovies';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuthStore();
@@ -94,6 +95,12 @@ const AdminDashboard = () => {
             onClick={() => setActiveTab('users')}
           >
             <span>👥</span> Người Dùng
+          </button>
+          <button
+            className={`admin-nav-item ${activeTab === 'movies' ? 'active' : ''}`}
+            onClick={() => setActiveTab('movies')}
+          >
+            <span>🎬</span> Quản Lý Phim
           </button>
           <button
             className={`admin-nav-item ${activeTab === 'stats' ? 'active' : ''}`}
@@ -239,6 +246,8 @@ const AdminDashboard = () => {
             )}
           </div>
         )}
+
+        {activeTab === 'movies' && <AdminMovies />}
 
         {activeTab === 'stats' && (
           <div>
