@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import httpServer from '../src/app.js';

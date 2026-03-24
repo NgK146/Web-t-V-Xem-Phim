@@ -4,6 +4,8 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import Home from './pages/Home';
+import MovieDetails from './pages/MovieDetails';
+import SeatSelection from './pages/SeatSelection';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -29,6 +31,22 @@ function App() {
           element={
             <ProtectedRoute>
               <Home />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/movie/:id" 
+          element={
+             <MovieDetails />
+          } 
+        />
+
+        <Route 
+          path="/showtimes/:id" 
+          element={
+            <ProtectedRoute>
+              <SeatSelection />
             </ProtectedRoute>
           } 
         />

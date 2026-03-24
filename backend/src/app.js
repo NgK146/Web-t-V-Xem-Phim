@@ -27,11 +27,14 @@ export const io = new Server(httpServer, {
 
 // Middlewares
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(morgan('dev'));
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static('public/uploads'));
 
 // Routes
 app.use('/api/auth',      authRoutes);

@@ -18,7 +18,32 @@ const movieSchema = new mongoose.Schema({
   totalRatings:{ type: Number, default: 0 },
 }, { timestamps: true });
 
-movieSchema.index({ title: 'text', description: 'text' });
+movieSchema.index({ title: 'text', description: 'text' }, { language_override: 'textSearchLang' });
 movieSchema.index({ status: 1, releaseDate: -1 });
+
+movieSchema.statics.calcAverageRatings = async function(movieId) {
+  const stats = await mongoose.model('Review').aggregate([
+    { $match: { movie: new mongoose.Types.ObjectId(movieId) } },
+    {
+      $group: {
+        _id: '$movie',
+        nRating: { $sum: 1 },
+        avgRating: { $avg: '$rating' }
+      }
+    }
+  ]);
+
+  if (stats.length > 0) {
+    await this.findByIdAndUpdate(movieId, {
+      totalRatings: stats[0].nRating,
+      avgRating: Math.round(stats[0].avgRating * 10) / 10
+    });
+  } else {
+    await this.findByIdAndUpdate(movieId, {
+      totalRatings: 0,
+      avgRating: 0
+    });
+  }
+};
 
 export default mongoose.model('Movie', movieSchema);
