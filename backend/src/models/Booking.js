@@ -22,6 +22,5 @@ const bookingSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 bookingSchema.index({ user: 1, createdAt: -1 });
-bookingSchema.index({ bookingCode: 1 });
 
 export default mongoose.model('Booking', bookingSchema);

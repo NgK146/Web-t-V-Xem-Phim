@@ -12,7 +12,7 @@ export const useSeatSocket = (showtimeId, onSeatsUpdated) => {
   useEffect(() => {
     if (!showtimeId) return;
 
-    socketRef.current = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000');
+    socketRef.current = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5001');
     socketRef.current.emit('join_showtime', showtimeId);
 
     socketRef.current.on('seat_status',    onSeatsUpdated);

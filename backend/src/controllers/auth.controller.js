@@ -37,21 +37,28 @@ export const register = async (req, res, next) => {
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
-    await sendEmail({
-      to: email,
-      subject: 'Chào mừng đến CinemaHub!',
-      template: 'welcome',
-      data: { name },
-    });
+    // Tạm tắt gửi email để test register
+    // await sendEmail({
+    //   to: email,
+    //   subject: 'Chào mừng đến CinemaHub!',
+    //   template: 'welcome',
+    //   data: { name },
+    // });
 
     res.status(201).json(
-      new ApiResponse(201, {
-        user: { id: user._id, name, email, role: user.role },
-        accessToken,
-        refreshToken,
-      }, 'Đăng ký thành công')
+      new ApiResponse(
+        201,
+        {
+          user: { id: user._id, name, email, role: user.role },
+          accessToken,
+          refreshToken,
+        },
+        'Đăng ký thành công'
+      )
     );
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 };
 
 /**
