@@ -23,7 +23,7 @@ movieSchema.index({ status: 1, releaseDate: -1 });
 
 movieSchema.statics.calcAverageRatings = async function(movieId) {
   const stats = await mongoose.model('Review').aggregate([
-    { $match: { movie: movieId } },
+    { $match: { movie: new mongoose.Types.ObjectId(movieId) } },
     {
       $group: {
         _id: '$movie',

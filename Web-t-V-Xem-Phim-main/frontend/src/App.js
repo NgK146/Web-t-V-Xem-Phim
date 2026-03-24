@@ -5,6 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 import Home from './pages/Home';
 import MovieDetails from './pages/MovieDetails';
+import SeatSelection from './pages/SeatSelection';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -37,8 +38,15 @@ function App() {
         <Route 
           path="/movie/:id" 
           element={
+             <MovieDetails />
+          } 
+        />
+
+        <Route 
+          path="/showtimes/:id" 
+          element={
             <ProtectedRoute>
-              <MovieDetails />
+              <SeatSelection />
             </ProtectedRoute>
           } 
         />

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { moviesApi } from '../api/movies.api';
 import { reviewsApi } from '../api/reviews.api';
+import { showtimesApi } from '../api/showtimes.api';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-toastify';
 
@@ -12,6 +13,7 @@ const MovieDetails = () => {
   
   const [movie, setMovie] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [showtimes, setShowtimes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(10);
   const [comment, setComment] = useState('');
@@ -20,12 +22,14 @@ const MovieDetails = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [movieRes, reviewsRes] = await Promise.all([
+      const [movieRes, reviewsRes, showtimesRes] = await Promise.all([
         moviesApi.getById(id),
-        reviewsApi.getMovieReviews(id)
+        reviewsApi.getMovieReviews(id),
+        showtimesApi.getByMovie(id)
       ]);
       setMovie(movieRes.data.data);
       setReviews(reviewsRes.data.data);
+      setShowtimes(showtimesRes.data.data);
     } catch (error) {
       console.error('Error fetching details:', error);
       toast.error('Không thể tải thông tin phim');
@@ -54,7 +58,9 @@ const MovieDetails = () => {
       });
       toast.success('Đánh giá của bạn đã được gửi!');
       setComment('');
-      fetchData(); // Reload to show new review and updated average
+      // Delay nhỏ để backend cập nhật avgRating trước khi fetch lại
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await fetchData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Không thể gửi đánh giá');
     } finally {
@@ -71,6 +77,33 @@ const MovieDetails = () => {
 
   return (
     <div className="movie-details-page">
+      {/* Back Button */}
+      <button 
+        onClick={() => navigate('/')}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          left: '20px',
+          zIndex: 10,
+          background: 'rgba(0,0,0,0.5)',
+          color: 'white',
+          border: '1px solid rgba(255,255,255,0.2)',
+          padding: '10px 20px',
+          borderRadius: '30px',
+          cursor: 'pointer',
+          fontWeight: 'bold',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          transition: 'all 0.3s'
+        }}
+        onMouseOver={(e) => { e.currentTarget.style.background = '#E71A0F'; e.currentTarget.style.borderColor = '#E71A0F'; }}
+        onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
+      >
+        <span>←</span> Quay lại Trang Chủ
+      </button>
+
       <div className="details-header" style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${posterSrc})` }}>
         <div className="details-container">
           <div className="details-main">
@@ -94,7 +127,66 @@ const MovieDetails = () => {
                 <p><strong>Thể loại:</strong> {movie.genre.join(', ')}</p>
                 <p><strong>Ngôn ngữ:</strong> {movie.language}</p>
               </div>
-              <button className="book-btn-lg">MUA VÉ NGAY</button>
+
+              <div style={{ marginTop: '40px' }}>
+                <h3 style={{ 
+                  marginBottom: '20px', 
+                  fontSize: '24px', 
+                  borderBottom: '2px solid #E71A0F', 
+                  display: 'inline-block',
+                  paddingBottom: '5px' 
+                }}>
+                  LỊCH CHIẾU
+                </h3>
+                {showtimes.length === 0 ? (
+                  <p style={{ color: '#aaa', fontStyle: 'italic' }}>Phim chưa có lịch chiếu.</p>
+                ) : (
+                  <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                    {showtimes.map(st => (
+                      <button 
+                        key={st._id}
+                        onClick={() => navigate(`/showtimes/${st._id}`)}
+                        style={{ 
+                          padding: '12px 24px', 
+                          background: 'rgba(255,255,255,0.05)', 
+                          backdropFilter: 'blur(10px)',
+                          color: 'white', 
+                          border: '1px solid rgba(255,255,255,0.2)', 
+                          borderRadius: '8px', 
+                          cursor: 'pointer', 
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.background = '#E71A0F';
+                          e.currentTarget.style.borderColor = '#E71A0F';
+                          e.currentTarget.style.transform = 'translateY(-4px)';
+                          e.currentTarget.style.boxShadow = '0 10px 20px rgba(231,26,15,0.4)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
+                      >
+                        <span style={{ fontSize: '20px', fontWeight: 'bold' }}>
+                          {new Date(st.startTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
+                        </span>
+                        <span style={{ fontSize: '13px', opacity: 0.8 }}>
+                          {new Date(st.startTime).toLocaleDateString('vi-VN')}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#FFD700', marginTop: '4px', textTransform: 'uppercase' }}>
+                          {st.room.type} - {st.room.cinema.name.split('-')[0]}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
