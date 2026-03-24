@@ -1,0 +1,246 @@
+import mongoose from 'mongoose';
+import Booking from '../models/Booking.js';
+import Showtime from '../models/Showtime.js';
+import Discount from '../models/Discount.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
+import { ApiError } from '../utils/ApiError.js';
+import { generateQRCode } from '../services/qr.service.js';
+import { sendEmail } from '../services/email.service.js';
+import { generateBookingCode } from '../utils/helpers.js';
+import { io } from '../app.js';
+
+/**
+ * @desc  Đặt vé xem phim
+ * @route POST /api/bookings
+ * @access Private
+ */
+export const createBooking = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { showtimeId, seatIds, discountCode } = req.body;
+
+    const showtime = await Showtime.findById(showtimeId)
+      .populate('movie room')
+      .session(session);
+    if (!showtime) throw new ApiError(404, 'Suất chiếu không tồn tại');
+    if (showtime.status !== 'scheduled') {
+      throw new ApiError(400, 'Suất chiếu này không còn khả dụng');
+    }
+
+    // Kiểm tra ghế
+    const tickets = [];
+    let totalPrice = 0;
+
+    for (const seatId of seatIds) {
+      const seatIndex = showtime.seats.findIndex(
+        s => s.seat.toString() === seatId
+      );
+      if (seatIndex === -1) throw new ApiError(400, 'Ghế không tồn tại');
+
+      const seat = showtime.seats[seatIndex];
+      if (seat.status !== 'available' && !(
+        seat.status === 'locked' &&
+        seat.lockedBy?.toString() === req.user._id.toString()
+      )) {
+        throw new ApiError(400, `Ghế đã được đặt hoặc đang bị giữ`);
+      }
+
+      // Tìm thông tin ghế từ room
+      const roomSeat = showtime.room.seats.id(seatId);
+      const label = roomSeat ? `${roomSeat.row}${roomSeat.number}` : seatId;
+
+      showtime.seats[seatIndex].status = 'booked';
+      tickets.push({
+        seat: seatId,
+        seatLabel: label,
+        seatType: roomSeat?.type || 'standard',
+        price: seat.price,
+      });
+      totalPrice += seat.price;
+    }
+
+    // Áp dụng mã giảm giá
+    let finalPrice = totalPrice;
+    let discountDoc = null;
+    if (discountCode) {
+      discountDoc = await Discount.findOne({
+        code: discountCode.toUpperCase(),
+        isActive: true,
+        startDate: { $lte: new Date() },
+        endDate:   { $gte: new Date() },
+      }).session(session);
+
+      if (!discountDoc) throw new ApiError(400, 'Mã giảm giá không hợp lệ');
+      if (discountDoc.usageLimit && discountDoc.usedCount >= discountDoc.usageLimit) {
+        throw new ApiError(400, 'Mã giảm giá đã hết lượt sử dụng');
+      }
+      if (totalPrice < discountDoc.minOrder) {
+        throw new ApiError(400, `Đơn hàng tối thiểu ${discountDoc.minOrder.toLocaleString()}đ`);
+      }
+
+      const discountAmount = discountDoc.type === 'percent'
+        ? Math.min(totalPrice * discountDoc.value / 100, discountDoc.maxDiscount || Infinity)
+        : discountDoc.value;
+
+      finalPrice = Math.max(0, totalPrice - discountAmount);
+      discountDoc.usedCount += 1;
+      await discountDoc.save({ session });
+    }
+
+    const bookingCode = generateBookingCode();
+    const booking = await Booking.create([{
+      user: req.user._id,
+      showtime: showtimeId,
+      tickets,
+      totalPrice,
+      discount: discountDoc?._id,
+      finalPrice,
+      status: 'pending',
+      bookingCode,
+    }], { session });
+
+    await showtime.save({ session });
+    await session.commitTransaction();
+
+    // Tạo QR code
+    const qrCode = await generateQRCode(booking[0].bookingCode);
+    booking[0].qrCode = qrCode;
+    await booking[0].save();
+
+    // Populate để trả về
+    await booking[0].populate('showtime user');
+
+    // Gửi email xác nhận
+    sendEmail({
+      to: req.user.email,
+      subject: `Xác nhận đặt vé - ${booking[0].bookingCode}`,
+      template: 'bookingConfirm',
+      data: { booking: booking[0], user: req.user },
+    }).catch(console.error);
+
+    // Thông báo real-time cập nhật ghế
+    io.to(showtimeId).emit('seats_updated', {
+      showtimeId,
+      seats: seatIds.map(id => ({ id, status: 'booked' })),
+    });
+
+    res.status(201).json(
+      new ApiResponse(201, booking[0], 'Đặt vé thành công')
+    );
+  } catch (err) {
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    session.endSession();
+  }
+};
+
+/**
+ * @desc  Giữ ghế tạm thời (5 phút)
+ * @route POST /api/bookings/lock-seats
+ * @access Private
+ */
+export const lockSeats = async (req, res, next) => {
+  try {
+    const { showtimeId, seatIds } = req.body;
+    const showtime = await Showtime.findById(showtimeId);
+    if (!showtime) throw new ApiError(404, 'Suất chiếu không tồn tại');
+
+    const lockExpiry = new Date(Date.now() + 5 * 60 * 1000);
+
+    for (const seatId of seatIds) {
+      const idx = showtime.seats.findIndex(s => s.seat.toString() === seatId);
+      if (idx === -1) throw new ApiError(400, 'Ghế không tồn tại');
+
+      const seat = showtime.seats[idx];
+      if (seat.status === 'booked') throw new ApiError(400, 'Ghế đã được đặt');
+      if (seat.status === 'locked' && seat.lockedBy?.toString() !== req.user._id.toString()) {
+        throw new ApiError(400, 'Ghế đang được người khác giữ');
+      }
+
+      showtime.seats[idx].status   = 'locked';
+      showtime.seats[idx].lockedBy = req.user._id;
+      showtime.seats[idx].lockedAt = lockExpiry;
+    }
+
+    await showtime.save();
+
+    // Emit real-time
+    io.to(showtimeId).emit('seats_updated', {
+      showtimeId,
+      seats: seatIds.map(id => ({ id, status: 'locked' })),
+    });
+
+    res.json(new ApiResponse(200, { lockedUntil: lockExpiry }, 'Ghế đã được giữ trong 5 phút'));
+  } catch (err) { next(err); }
+};
+
+/**
+ * @desc  Hủy vé đặt
+ * @route PATCH /api/bookings/:id/cancel
+ * @access Private
+ */
+export const cancelBooking = async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.id).populate('showtime');
+    if (!booking) throw new ApiError(404, 'Không tìm thấy booking');
+    if (booking.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      throw new ApiError(403, 'Không có quyền hủy vé này');
+    }
+    if (booking.status === 'cancelled') throw new ApiError(400, 'Vé đã bị hủy trước đó');
+
+    // Kiểm tra thời gian cho phép hủy (trước suất chiếu 2h)
+    const showtime = booking.showtime;
+    const twoHoursBefore = new Date(showtime.startTime - 2 * 60 * 60 * 1000);
+    if (new Date() > twoHoursBefore && req.user.role !== 'admin') {
+      throw new ApiError(400, 'Không thể hủy vé trong vòng 2 giờ trước suất chiếu');
+    }
+
+    // Giải phóng ghế
+    const seatIds = booking.tickets.map(t => t.seat.toString());
+    for (const seatId of seatIds) {
+      const idx = showtime.seats.findIndex(s => s.seat.toString() === seatId);
+      if (idx !== -1) {
+        showtime.seats[idx].status   = 'available';
+        showtime.seats[idx].lockedBy = undefined;
+        showtime.seats[idx].lockedAt = undefined;
+      }
+    }
+    await showtime.save();
+
+    booking.status       = 'cancelled';
+    booking.cancelledAt  = new Date();
+    booking.cancelReason = req.body.reason || 'Người dùng hủy';
+    await booking.save();
+
+    io.to(showtime._id.toString()).emit('seats_updated', {
+      showtimeId: showtime._id,
+      seats: seatIds.map(id => ({ id, status: 'available' })),
+    });
+
+    res.json(new ApiResponse(200, booking, 'Hủy vé thành công'));
+  } catch (err) { next(err); }
+};
+
+/**
+ * @desc  Lịch sử đặt vé của người dùng
+ * @route GET /api/bookings/my-bookings
+ * @access Private
+ */
+export const getMyBookings = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const { skip, pagination } = buildPagination(page, limit,
+      await Booking.countDocuments({ user: req.user._id }));
+
+    const bookings = await Booking.find({ user: req.user._id })
+      .populate({ path: 'showtime', populate: { path: 'movie room' } })
+      .sort('-createdAt')
+      .skip(skip)
+      .limit(Number(limit));
+
+    res.json(new ApiResponse(200, { bookings, pagination }));
+  } catch (err) { next(err); }
+};
