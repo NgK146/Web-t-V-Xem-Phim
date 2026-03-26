@@ -1531,10 +1531,8 @@ body {
   align-items: center;
   justify-content: center;
   background:
-    linear-gradient(180deg, rgba(10,10,15,0.3) 0%, rgba(10,10,15,0.7) 60%, #0a0a0f 100%),
-    radial-gradient(ellipse at 30% 50%, rgba(103,78,234,0.35) 0%, transparent 60%),
-    radial-gradient(ellipse at 70% 30%, rgba(231,26,15,0.2) 0%, transparent 50%),
-    linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 50%, #0a0a0f 100%);
+    linear-gradient(180deg, rgba(10,10,10,0.4) 0%, rgba(10,10,15,0.7) 60%, #0a0a0f 100%),
+    url('./hero-bg.png') center/cover no-repeat;
   overflow: hidden;
 }
 
