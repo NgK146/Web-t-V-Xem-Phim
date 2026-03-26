@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+import LandingPage from './pages/LandingPage';
 import Home from './pages/Home';
 import MovieDetails from './pages/MovieDetails';
 import SeatSelection from './pages/SeatSelection';
@@ -19,6 +20,9 @@ function App() {
     <>
       <ToastContainer position="top-right" autoClose={3000} />
       <Routes>
+        {/* Landing Page (public) */}
+        <Route path="/landing" element={<LandingPage />} />
+
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
