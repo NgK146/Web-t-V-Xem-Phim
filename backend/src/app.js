@@ -34,7 +34,6 @@ app.use(morgan('dev'));
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static('public/uploads'));
 
 // Routes
 app.use('/api/auth',      authRoutes);

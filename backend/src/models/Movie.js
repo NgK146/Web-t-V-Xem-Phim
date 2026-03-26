@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const movieSchema = new mongoose.Schema({
   title:       { type: String, required: true, trim: true },
   description: { type: String, required: true },
-  poster:      { type: String, required: true },
+  poster:      { type: String, default: '' },
   trailer:     { type: String },
   genre:       [{ type: String }],
   director:    { type: String },

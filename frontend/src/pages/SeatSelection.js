@@ -173,7 +173,7 @@ const SeatSelection = () => {
             {showtime.movie?.title}
           </h2>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', color: '#aaa', fontSize: '16px' }}>
-            <span><strong style={{ color: '#fff' }}>Rạp:</strong> {showtime.room?.cinema?.name}</span>
+            <span><strong style={{ color: '#fff' }}>Rạp:</strong> {showtime.room?.cinema?.name?.replace('CGV - ', '')}</span>
             <span>|</span>
             <span><strong style={{ color: '#fff' }}>Phòng:</strong> {showtime.room?.name}</span>
             <span>|</span>
