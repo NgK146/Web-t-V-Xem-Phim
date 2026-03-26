@@ -80,7 +80,7 @@ const AdminDashboard = () => {
       <aside className="admin-sidebar">
         <div className="admin-logo">
           <span className="admin-logo-icon">🎬</span>
-          <span>CinemaHub</span>
+          <span>CineBooking</span>
         </div>
         <div className="admin-admin-badge">
           <div className="admin-avatar">{user?.name?.charAt(0).toUpperCase()}</div>

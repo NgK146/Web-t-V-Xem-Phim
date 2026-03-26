@@ -180,7 +180,7 @@ const MovieDetails = () => {
                           {new Date(st.startTime).toLocaleDateString('vi-VN')}
                         </span>
                         <span style={{ fontSize: '11px', color: '#FFD700', marginTop: '4px', textTransform: 'uppercase' }}>
-                          {st.room.type} - {st.room.cinema.name.split('-')[0]}
+                          {st.room.type} - {st.room.cinema.name.replace('CGV - ', '')}
                         </span>
                       </button>
                     ))}

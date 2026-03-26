@@ -47,7 +47,7 @@ const Register = () => {
           <Link to="/landing" className="auth-back-btn">← Trang chủ</Link>
           <div className="auth-brand">
             <div className="auth-brand-icon">🎬</div>
-            <h1 className="auth-brand-name">CineBook</h1>
+            <h1 className="auth-brand-name">CineBooking</h1>
           </div>
           <div className="auth-left-headline">
             <h2>Tham gia cộng đồng!</h2>

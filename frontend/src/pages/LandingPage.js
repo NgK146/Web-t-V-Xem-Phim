@@ -258,7 +258,7 @@ const LandingPage = () => {
           <div className="footer-brand">
             <div className="landing-logo" style={{ marginBottom: '12px' }}>
               <span className="landing-logo-icon">🎬</span>
-              <span className="landing-logo-text">CineBook</span>
+              <span className="landing-logo-text">CineBooking</span>
             </div>
             <p className="footer-tagline">Trải nghiệm điện ảnh đỉnh cao tại mọi nơi, mọi lúc.</p>
           </div>
@@ -276,7 +276,7 @@ const LandingPage = () => {
           </div>
         </div>
         <div className="footer-bottom">
-          <p>© 2025 CineBook. Nền tảng đặt vé xem phim hàng đầu Việt Nam.</p>
+          <p>© 2025 CineBooking. Nền tảng đặt vé xem phim hàng đầu Việt Nam.</p>
         </div>
       </footer>
     </div>
