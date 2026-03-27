@@ -1,8 +1,29 @@
 import Showtime from '../models/Showtime.js';
 import Room from '../models/Room.js';
 import Cinema from '../models/Cinema.js';
+import Movie from '../models/Movie.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
+
+/**
+ * @desc  Lấy danh sách tất cả suất chiếu (admin)
+ * @route GET /api/showtimes
+ * @access Admin
+ */
+export const getAdminShowtimes = async (req, res, next) => {
+  try {
+    const showtimes = await Showtime.find()
+      .populate('movie', 'title')
+      .populate({
+        path: 'room',
+        select: 'name',
+        populate: { path: 'cinema', select: 'name' }
+      })
+      .sort('-startTime');
+
+    res.json(new ApiResponse(200, showtimes));
+  } catch (error) { next(error); }
+};
 
 /**
  * @desc  Lấy danh sách suất chiếu của một phim
@@ -50,4 +71,77 @@ export const getShowtimeDetails = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+/**
+ * @desc  Tạo suất chiếu mới (admin)
+ * @route POST /api/showtimes
+ * @access Admin
+ */
+export const createShowtime = async (req, res, next) => {
+  try {
+    const { movie, room, startTime, endTime, basePrice } = req.body;
+
+    // 1. Kiểm tra phòng tồn tại
+    const roomDoc = await Room.findById(room);
+    if (!roomDoc) throw new ApiError(404, 'Không tìm thấy phòng');
+
+    // 2. Kiểm tra trùng lịch (Overlap check)
+    const overlap = await Showtime.findOne({
+      room,
+      status: { $ne: 'cancelled' },
+      $or: [
+        { startTime: { $lt: endTime, $gte: startTime } },
+        { endTime: { $gt: startTime, $lte: endTime } },
+        { startTime: { $lte: startTime }, endTime: { $gte: endTime } }
+      ]
+    });
+    if (overlap) throw new ApiError(400, 'Phòng đã có suất chiếu vào thời gian này');
+
+    const seats = roomDoc.seats.map(s => ({
+      seat: s._id,
+      status: s.isActive ? 'available' : 'booked', // Nếu ghế bị hỏng thì coi như đã đặt để khoá
+      price: s.type === 'vip' ? basePrice * 1.2 : (s.type === 'couple' ? basePrice * 2 : basePrice)
+    }));
+
+    // Find movie and cinema names for display fields
+    const movieDoc = await Movie.findById(movie);
+    const cinemaDoc = await Cinema.findById(roomDoc.cinema);
+
+    const showtime = await Showtime.create({
+      movie, room, startTime, endTime, basePrice, seats,
+      movieTitle: movieDoc?.title,
+      roomName: roomDoc.name,
+      cinemaName: cinemaDoc?.name,
+      startTimeDisplay: new Date(startTime).toLocaleString('vi-VN')
+    });
+
+    res.status(201).json(new ApiResponse(201, showtime, 'Tạo suất chiếu thành công'));
+  } catch (error) { next(error); }
+};
+
+/**
+ * @desc  Cập nhật suất chiếu (admin)
+ * @route PUT /api/showtimes/:id
+ * @access Admin
+ */
+export const updateShowtime = async (req, res, next) => {
+  try {
+    const showtime = await Showtime.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!showtime) throw new ApiError(404, 'Không tìm thấy suất chiếu');
+    res.json(new ApiResponse(200, showtime, 'Cập nhật thành công'));
+  } catch (error) { next(error); }
+};
+
+/**
+ * @desc  Xoá suất chiếu (admin)
+ * @route DELETE /api/showtimes/:id
+ * @access Admin
+ */
+export const deleteShowtime = async (req, res, next) => {
+  try {
+    const showtime = await Showtime.findByIdAndDelete(req.params.id);
+    if (!showtime) throw new ApiError(404, 'Không tìm thấy suất chiếu');
+    res.json(new ApiResponse(200, null, 'Xoá suất chiếu thành công'));
+  } catch (error) { next(error); }
 };
