@@ -3066,3 +3066,70 @@ body {
   .features-grid { grid-template-columns: 1fr; }
   .hero-actions { flex-direction: column; align-items: center; }
 }
+
+/* ===== ADMIN ENHANCEMENTS ===== */
+.admin-cinemas-container, .admin-reports {
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.cinema-item-card {
+    transition: all 0.2s ease;
+}
+
+.cinema-item-card:hover {
+    transform: translateX(4px);
+    background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.cinema-item-card.active {
+    box-shadow: 0 4px 15px rgba(229, 9, 20, 0.2);
+}
+
+.small-actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 14px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.small-actions button:hover {
+    opacity: 1;
+}
+
+.type-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+}
+
+.report-chart-container {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.admin-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    font-size: 1.1rem;
+    color: #888;
+}
+
+.recharts-tooltip-cursor {
+    fill: rgba(255, 255, 255, 0.05);
+}
+
+.admin-nav-item span {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+}
