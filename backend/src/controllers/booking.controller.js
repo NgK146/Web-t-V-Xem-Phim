@@ -15,15 +15,11 @@ import { io } from '../app.js';
  * @access Private
  */
 export const createBooking = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { showtimeId, seatIds, discountCode } = req.body;
 
     const showtime = await Showtime.findById(showtimeId)
-      .populate('movie room')
-      .session(session);
+      .populate('movie room');
     if (!showtime) throw new ApiError(404, 'Suất chiếu không tồn tại');
     if (showtime.status !== 'scheduled') {
       throw new ApiError(400, 'Suất chiếu này không còn khả dụng');
@@ -70,7 +66,7 @@ export const createBooking = async (req, res, next) => {
         isActive: true,
         startDate: { $lte: new Date() },
         endDate:   { $gte: new Date() },
-      }).session(session);
+      });
 
       if (!discountDoc) throw new ApiError(400, 'Mã giảm giá không hợp lệ');
       if (discountDoc.usageLimit && discountDoc.usedCount >= discountDoc.usageLimit) {
@@ -86,7 +82,7 @@ export const createBooking = async (req, res, next) => {
 
       finalPrice = Math.max(0, totalPrice - discountAmount);
       discountDoc.usedCount += 1;
-      await discountDoc.save({ session });
+      await discountDoc.save();
     }
 
     const bookingCode = generateBookingCode();
@@ -99,10 +95,9 @@ export const createBooking = async (req, res, next) => {
       finalPrice,
       status: 'pending',
       bookingCode,
-    }], { session });
+    }]);
 
-    await showtime.save({ session });
-    await session.commitTransaction();
+    await showtime.save();
 
     // Tạo QR code
     const qrCode = await generateQRCode(booking[0].bookingCode);
@@ -130,10 +125,7 @@ export const createBooking = async (req, res, next) => {
       new ApiResponse(201, booking[0], 'Đặt vé thành công')
     );
   } catch (err) {
-    await session.abortTransaction();
     next(err);
-  } finally {
-    session.endSession();
   }
 };
 
