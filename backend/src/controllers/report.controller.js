@@ -11,19 +11,21 @@ import xlsx from 'xlsx';
  */
 export const getDashboard = async (req, res, next) => {
   try {
+    const ACTIVE_STATUSES = { status: { $in: ['pending', 'confirmed'] } };
+
     const [totalUsers, totalMovies, totalBookings, revenueData] = await Promise.all([
       User.countDocuments({ role: 'user' }),
       Movie.countDocuments(),
-      Booking.countDocuments({ status: 'confirmed' }),
+      Booking.countDocuments(ACTIVE_STATUSES),
       Booking.aggregate([
-        { $match: { status: 'confirmed' } },
+        { $match: ACTIVE_STATUSES },
         { $group: { _id: null, total: { $sum: '$finalPrice' } } },
       ]),
     ]);
 
     // Doanh thu theo tháng (12 tháng gần nhất)
     const monthlyRevenue = await Booking.aggregate([
-      { $match: { status: 'confirmed', createdAt: { $gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) } } },
+      { $match: { status: { $in: ['pending', 'confirmed'] }, createdAt: { $gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) } } },
       { $group: {
         _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
         revenue: { $sum: '$finalPrice' },
@@ -34,7 +36,7 @@ export const getDashboard = async (req, res, next) => {
 
     // Top phim được đặt nhiều nhất
     const topMovies = await Booking.aggregate([
-      { $match: { status: 'confirmed' } },
+      { $match: { status: { $in: ['pending', 'confirmed'] } } },
       { $lookup: { from: 'showtimes', localField: 'showtime', foreignField: '_id', as: 'showtime' } },
       { $unwind: '$showtime' },
       { $group: { _id: '$showtime.movie', count: { $sum: 1 }, revenue: { $sum: '$finalPrice' } } },
@@ -68,7 +70,7 @@ export const exportRevenueExcel = async (req, res, next) => {
     const { startDate, endDate } = req.query;
 
     const bookings = await Booking.find({
-      status: 'confirmed',
+      status: { $in: ['pending', 'confirmed'] },
       createdAt: {
         $gte: new Date(startDate || '2024-01-01'),
         $lte: new Date(endDate || new Date()),

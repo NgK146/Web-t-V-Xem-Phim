@@ -66,7 +66,20 @@ export const getShowtimeDetails = async (req, res, next) => {
       });
       
     if (!showtime) throw new ApiError(404, 'Không tìm thấy suất chiếu');
-    
+
+    // Auto-expire stale locks
+    const now = new Date();
+    let changed = false;
+    showtime.seats.forEach(seat => {
+      if (seat.status === 'locked' && seat.lockedAt && new Date(seat.lockedAt) < now) {
+        seat.status = 'available';
+        seat.lockedBy = undefined;
+        seat.lockedAt = undefined;
+        changed = true;
+      }
+    });
+    if (changed) await showtime.save();
+
     res.json(new ApiResponse(200, showtime, 'Chi tiết suất chiếu'));
   } catch (error) {
     next(error);

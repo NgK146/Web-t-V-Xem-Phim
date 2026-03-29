@@ -7,6 +7,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { generateQRCode } from '../services/qr.service.js';
 import { sendEmail } from '../services/email.service.js';
 import { generateBookingCode } from '../utils/helpers.js';
+import { buildPagination } from '../utils/pagination.js';
 import { io } from '../app.js';
 
 /**
@@ -85,6 +86,9 @@ export const createBooking = async (req, res, next) => {
       await discountDoc.save();
     }
 
+    // Lưu trạng thái ghế TRƯỚC khi tạo booking để đảm bảo tính nhất quán
+    await showtime.save();
+
     const bookingCode = generateBookingCode();
     const booking = await Booking.create([{
       user: req.user._id,
@@ -93,11 +97,9 @@ export const createBooking = async (req, res, next) => {
       totalPrice,
       discount: discountDoc?._id,
       finalPrice,
-      status: 'pending',
+      status: 'confirmed',  // Tự xác nhận vì không có cổng thanh toán thực
       bookingCode,
     }]);
-
-    await showtime.save();
 
     // Tạo QR code
     const qrCode = await generateQRCode(booking[0].bookingCode);
@@ -170,6 +172,43 @@ export const lockSeats = async (req, res, next) => {
 };
 
 /**
+ * @desc  Nhả khóa các ghế (khi user bỏ chọn hoặc rời trang)
+ * @route POST /api/bookings/unlock-seats
+ * @access Private
+ */
+export const unlockSeats = async (req, res, next) => {
+  try {
+    const { showtimeId, seatIds } = req.body;
+    const showtime = await Showtime.findById(showtimeId);
+    if (!showtime) return res.json(new ApiResponse(200, null, 'OK'));
+
+    let changed = false;
+    for (const seatId of seatIds) {
+      const idx = showtime.seats.findIndex(s => s.seat.toString() === seatId);
+      if (idx === -1) continue;
+      const seat = showtime.seats[idx];
+      // Chỉ nhả nếu chính user này đang giữ
+      if (seat.status === 'locked' && seat.lockedBy?.toString() === req.user._id.toString()) {
+        showtime.seats[idx].status   = 'available';
+        showtime.seats[idx].lockedBy = undefined;
+        showtime.seats[idx].lockedAt = undefined;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await showtime.save();
+      io.to(showtimeId).emit('seats_updated', {
+        showtimeId,
+        seats: seatIds.map(id => ({ id, status: 'available' })),
+      });
+    }
+
+    res.json(new ApiResponse(200, null, 'Ghế đã được nhả'));
+  } catch (err) { next(err); }
+};
+
+/**
  * @desc  Hủy vé đặt
  * @route PATCH /api/bookings/:id/cancel
  * @access Private
@@ -228,7 +267,13 @@ export const getMyBookings = async (req, res, next) => {
       await Booking.countDocuments({ user: req.user._id }));
 
     const bookings = await Booking.find({ user: req.user._id })
-      .populate({ path: 'showtime', populate: { path: 'movie room' } })
+      .populate({
+        path: 'showtime',
+        populate: [
+          { path: 'movie', select: 'title poster genre duration' },
+          { path: 'room', populate: { path: 'cinema', select: 'name address' } }
+        ]
+      })
       .sort('-createdAt')
       .skip(skip)
       .limit(Number(limit));
