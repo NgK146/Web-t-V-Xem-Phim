@@ -10,6 +10,8 @@ export const moviesApi = {
   create:       (formData) => api.post('/movies', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
-  update:       (id, data) => api.put(`/movies/${id}`, data),
+  update:       (id, formData) => api.put(`/movies/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   delete:       (id)       => api.delete(`/movies/${id}`),
 };

@@ -5,6 +5,22 @@ import { buildPagination } from '../utils/pagination.js';
 import cloudinary from '../config/cloudinary.js';
 
 /**
+ * Upload a file buffer directly to Cloudinary (compatible with multer v2 memoryStorage)
+ */
+const uploadToCloudinary = (buffer, mimetype) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: 'cinema_posters', resource_type: 'image' },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result.secure_url);
+      }
+    );
+    uploadStream.end(buffer);
+  });
+};
+
+/**
  * @desc  Lấy danh sách phim có lọc, tìm kiếm, phân trang
  * @route GET /api/movies
  * @access Public
@@ -54,12 +70,8 @@ export const createMovie = async (req, res, next) => {
   try {
     let posterUrl = '';
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'cinema/posters',
-      });
-      posterUrl = result.secure_url;
+      posterUrl = await uploadToCloudinary(req.file.buffer, req.file.mimetype);
     }
-
     const movie = await Movie.create({ ...req.body, poster: posterUrl });
     res.status(201).json(new ApiResponse(201, movie, 'Tạo phim thành công'));
   } catch (err) { next(err); }
@@ -72,8 +84,14 @@ export const createMovie = async (req, res, next) => {
  */
 export const updateMovie = async (req, res, next) => {
   try {
-    const movie = await Movie.findByIdAndUpdate(req.params.id, req.body, {
-      new: true, runValidators: true,
+    const updateData = { ...req.body };
+
+    if (req.file) {
+      updateData.poster = await uploadToCloudinary(req.file.buffer, req.file.mimetype);
+    }
+
+    const movie = await Movie.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
     });
     if (!movie) throw new ApiError(404, 'Không tìm thấy phim');
     res.json(new ApiResponse(200, movie, 'Cập nhật phim thành công'));

@@ -8,6 +8,17 @@ import User from '../models/User.js';
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
+/**
+ * Giới hạn truy cập theo role
+ * @param {...string} roles - Danh sách role được phép
+ */
+export const restrictTo = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.user.role)) {
+    return next(new ApiError(403, 'Bạn không có quyền thực hiện hành động này'));
+  }
+  next();
+};
+
 export const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
