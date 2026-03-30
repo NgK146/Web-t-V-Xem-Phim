@@ -93,36 +93,38 @@ export const seedDatabase = async () => {
       }
     }
 
-    // 4. Showtimes (Re-seed to ensure display fields are populated)
-    await Showtime.deleteMany({}); // Clear to refresh with readable fields
-    const nowShowingMovies = await Movie.find({ status: 'now_showing' });
-    for (const movie of nowShowingMovies) {
-      // Generate 3 showtimes for each movie across today and tomorrow
-      for (let i = 0; i < 3; i++) {
-        const room = allRooms[Math.floor(Math.random() * allRooms.length)];
-        const dayOffset = i === 0 ? 0 : 1; // First is today, others tomorrow
-        const start = new Date();
-        start.setDate(start.getDate() + dayOffset);
-        start.setHours(14 + (i * 3), 0, 0, 0); // Spaced out times
-        const end = new Date(start);
-        end.setMinutes(end.getMinutes() + movie.duration + 30);
+    // 4. Showtimes
+    const existingShowtimes = await Showtime.countDocuments();
+    if (existingShowtimes === 0) {
+      const nowShowingMovies = await Movie.find({ status: 'now_showing' });
+      for (const movie of nowShowingMovies) {
+        // Generate 3 showtimes for each movie across today and tomorrow
+        for (let i = 0; i < 3; i++) {
+          const room = allRooms[Math.floor(Math.random() * allRooms.length)];
+          const dayOffset = i === 0 ? 0 : 1; // First is today, others tomorrow
+          const start = new Date();
+          start.setDate(start.getDate() + dayOffset);
+          start.setHours(14 + (i * 3), 0, 0, 0); // Spaced out times
+          const end = new Date(start);
+          end.setMinutes(end.getMinutes() + movie.duration + 30);
 
-        await Showtime.create({
-          movie: movie._id,
-          room: room._id,
-          startTime: start,
-          endTime: end,
-          basePrice: 90000,
-          seats: room.seats.map(s => ({
-            seat: s._id,
-            status: 'available',
-            price: s.type === 'vip' ? 120000 : (s.type === 'couple' ? 180000 : 90000)
-          })),
-          status: 'scheduled'
-        });
+          await Showtime.create({
+            movie: movie._id,
+            room: room._id,
+            startTime: start,
+            endTime: end,
+            basePrice: 90000,
+            seats: room.seats.map(s => ({
+              seat: s._id,
+              status: 'available',
+              price: s.type === 'vip' ? 120000 : (s.type === 'couple' ? 180000 : 90000)
+            })),
+            status: 'scheduled'
+          });
+        }
       }
+      console.log('✅ Multiple showtimes generated for each movie.');
     }
-    console.log('✅ Multiple showtimes generated for each movie.');
 
     // 5. Discount codes
     for (const disc of discountsData) {

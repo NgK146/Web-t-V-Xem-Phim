@@ -15,6 +15,11 @@ const bookingSchema = new mongoose.Schema({
   discount:   { type: mongoose.Schema.Types.ObjectId, ref: 'Discount' },
   finalPrice: { type: Number, required: true },
   status:     { type: String, enum: ['pending', 'confirmed', 'cancelled', 'refunded'], default: 'pending' },
+  // Snapshot fields for history reliability
+  movieTitle: { type: String },
+  cinemaName: { type: String },
+  roomName:   { type: String },
+  showstartTime: { type: Date },
   qrCode:     { type: String },
   bookingCode:{ type: String, unique: true },
   cancelledAt:{ type: Date },

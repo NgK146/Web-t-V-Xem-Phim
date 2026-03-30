@@ -214,12 +214,11 @@ const MyTicketsModal = ({ onClose }) => {
         <div className="cb-ticket-list">
           {bookings.map((b) => {
             const st = statusLabel(b.status);
-            const movie = b.showtime?.movie;
-            const room  = b.showtime?.room;
-            const cinema = room?.cinema;
-            const startTime = b.showtime?.startTime
-              ? new Date(b.showtime.startTime)
-              : null;
+            // Use snapshot as primary (more reliable) fallback to populated showtime
+            const movieTitle = b.movieTitle || b.showtime?.movie?.title;
+            const cinemaName = b.cinemaName || b.showtime?.room?.cinema?.name;
+            const roomName   = b.roomName   || b.showtime?.room?.name;
+            const startTime  = b.showstartTime ? new Date(b.showstartTime) : (b.showtime?.startTime ? new Date(b.showtime.startTime) : null);
             return (
               <div key={b._id} className="cb-ticket-item">
                 {/* Header row */}
@@ -230,14 +229,14 @@ const MyTicketsModal = ({ onClose }) => {
 
                 {/* Movie name */}
                 <div className="cb-ticket-movie">
-                  🎬 {movie?.title || '—'}
+                  🎬 {movieTitle || '—'}
                 </div>
 
                 {/* Cinema / room / time */}
-                {(cinema || room || startTime) && (
+                {(cinemaName || roomName || startTime) && (
                   <div className="cb-ticket-details">
-                    {cinema?.name && <span>🏛️ {cinema.name}</span>}
-                    {room?.name   && <span>🚪 {room.name}</span>}
+                    {cinemaName && <span>🏛️ {cinemaName}</span>}
+                    {roomName   && <span>🚪 {roomName}</span>}
                     {startTime    && (
                       <span>🕐 {startTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} &nbsp;
                         {startTime.toLocaleDateString('vi-VN')}</span>

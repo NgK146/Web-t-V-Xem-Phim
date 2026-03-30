@@ -13,15 +13,19 @@ export const getDashboard = async (req, res, next) => {
   try {
     const ACTIVE_STATUSES = { status: { $in: ['pending', 'confirmed'] } };
 
-    const [totalUsers, totalMovies, totalBookings, revenueData] = await Promise.all([
+    const [totalUsers, totalMovies, ticketAgg, revenueData] = await Promise.all([
       User.countDocuments({ role: 'user' }),
       Movie.countDocuments(),
-      Booking.countDocuments(ACTIVE_STATUSES),
+      Booking.aggregate([
+        { $match: ACTIVE_STATUSES },
+        { $group: { _id: null, totalTickets: { $sum: { $size: { $ifNull: ['$tickets', []] } } } } },
+      ]),
       Booking.aggregate([
         { $match: ACTIVE_STATUSES },
         { $group: { _id: null, total: { $sum: '$finalPrice' } } },
       ]),
     ]);
+    const totalBookings = ticketAgg[0]?.totalTickets || 0;
 
     // Doanh thu theo tháng (12 tháng gần nhất)
     const monthlyRevenue = await Booking.aggregate([
@@ -29,22 +33,18 @@ export const getDashboard = async (req, res, next) => {
       { $group: {
         _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
         revenue: { $sum: '$finalPrice' },
-        count:   { $sum: 1 },
+        count:   { $sum: { $size: { $ifNull: ['$tickets', []] } } },
       }},
       { $sort: { '_id.year': 1, '_id.month': 1 } },
     ]);
 
-    // Top phim được đặt nhiều nhất
+    // Top phim được đặt nhiều (Sử dụng dữ liệu snapshot thay vì tra ngược showtime do showtime có thể đã bị xóa)
     const topMovies = await Booking.aggregate([
-      { $match: { status: { $in: ['pending', 'confirmed'] } } },
-      { $lookup: { from: 'showtimes', localField: 'showtime', foreignField: '_id', as: 'showtime' } },
-      { $unwind: '$showtime' },
-      { $group: { _id: '$showtime.movie', count: { $sum: 1 }, revenue: { $sum: '$finalPrice' } } },
+      { $match: { status: { $in: ['pending', 'confirmed'] }, movieTitle: { $exists: true, $ne: null } } },
+      { $group: { _id: '$movieTitle', count: { $sum: { $size: { $ifNull: ['$tickets', []] } } }, revenue: { $sum: '$finalPrice' } } },
       { $sort: { count: -1 } },
-      { $limit: 5 },
-      { $lookup: { from: 'movies', localField: '_id', foreignField: '_id', as: 'movie' } },
-      { $unwind: '$movie' },
-      { $project: { title: '$movie.title', poster: '$movie.poster', count: 1, revenue: 1 } },
+      { $limit: 10 },
+      { $project: { title: '$_id', count: 1, revenue: 1 } },
     ]);
 
     res.json(new ApiResponse(200, {

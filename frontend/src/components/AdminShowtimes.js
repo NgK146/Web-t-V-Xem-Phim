@@ -155,7 +155,7 @@ const AdminShowtimes = () => {
                 <th>Cụm Rạp</th>
                 <th>Phòng</th>
                 <th>Bắt Đầu</th>
-                <th>Giá Cơ Bản</th>
+                <th>Giá Vé (Thường/VIP/Đôi)</th>
                 <th>Trạng Thái</th>
                 <th>Thao Tác</th>
               </tr>
@@ -172,7 +172,11 @@ const AdminShowtimes = () => {
                     <div style={{ color: '#333', fontWeight: '500' }}>{new Date(s.startTime).toLocaleDateString('vi-VN')}</div>
                     <div style={{ color: '#e50914', fontWeight: 'bold', fontSize: '1.1rem' }}>{new Date(s.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                   </td>
-                  <td>{s.basePrice?.toLocaleString()}đ</td>
+                  <td>
+                    <div style={{ color: '#333', fontWeight: '600' }}>T: {s.basePrice?.toLocaleString()}đ</div>
+                    <div style={{ color: '#e50914', fontSize: '13px', marginTop: '4px' }}>V: {(s.basePrice * 1.2).toLocaleString()}đ</div>
+                    <div style={{ color: '#7c3aed', fontSize: '13px', marginTop: '2px' }}>Đ: {(s.basePrice * 2).toLocaleString()}đ</div>
+                  </td>
                   <td>
                     <span className={`status-badge ${s.status === 'scheduled' ? 'active' : 'banned'}`}>
                       {s.status === 'scheduled' ? 'Sắp chiếu' : s.status}
@@ -232,7 +236,15 @@ const AdminShowtimes = () => {
               </div>
               <div className="movie-form-group">
                 <label>Giá vé cơ bản (VNĐ) *</label>
-                <input type="number" required step="1000" min="10000" value={form.basePrice} onChange={e => setForm({...form, basePrice: parseInt(e.target.value)})} />
+                <input type="number" required step="1000" min="10000" value={form.basePrice} onChange={e => setForm({...form, basePrice: parseInt(e.target.value) || 0})} />
+                <div style={{ marginTop: '12px', padding: '12px', background: '#f8f9fa', borderRadius: '8px', fontSize: '13px', color: '#555', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#111827' }}>📊 Hệ thống sẽ tự động tính toán giá các loại ghế phụ:</div>
+                  <ul style={{ margin: '0 0 0 20px', padding: 0, lineHeight: '1.6' }}>
+                     <li>Ghế Thường: <strong>{form.basePrice?.toLocaleString()}đ</strong> (1x)</li>
+                     <li>Ghế VIP: <strong style={{color:'#e50914'}}>{(form.basePrice * 1.2).toLocaleString()}đ</strong> (1.2x giá cơ bản)</li>
+                     <li>Ghế Đôi (Couple): <strong style={{color:'#7c3aed'}}>{(form.basePrice * 2).toLocaleString()}đ</strong> (2x giá cơ bản)</li>
+                  </ul>
+                </div>
               </div>
               <p style={{ fontSize: '0.8rem', color: '#888' }}>
                 * Giờ kết thúc sẽ tự động tính dựa trên thời lượng phim (+30 phút dọn phòng).

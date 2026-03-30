@@ -14,10 +14,11 @@ import ResetPassword from './pages/ResetPassword';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
-    <>
+    <ErrorBoundary>
       <ToastContainer position="top-right" autoClose={3000} />
       <Routes>
         {/* Landing Page (public) */}
@@ -65,7 +66,7 @@ function App() {
           } 
         />
       </Routes>
-    </>
+    </ErrorBoundary>
   );
 }
 

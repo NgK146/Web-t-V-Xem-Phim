@@ -99,6 +99,11 @@ export const createBooking = async (req, res, next) => {
       finalPrice,
       status: 'confirmed',  // Tự xác nhận vì không có cổng thanh toán thực
       bookingCode,
+      // Store snapshot for long-term history reliability
+      movieTitle:    showtime.movieTitle || showtime.movie?.title,
+      cinemaName:    showtime.cinemaName || showtime.room?.cinema?.name,
+      roomName:      showtime.roomName   || showtime.room?.name,
+      showstartTime: showtime.startTime,
     }]);
 
     // Tạo QR code

@@ -19,7 +19,13 @@ const AdminCinemas = () => {
     setLoading(true);
     try {
       const res = await api.get('/cinemas');
-      setCinemas(res.data.data);
+      const fetchedCinemas = res.data.data;
+      setCinemas(fetchedCinemas);
+      
+      // Auto-select the first cinema if none is currently selected to show the room panel
+      if (fetchedCinemas.length > 0) {
+        setSelectedCinema(prev => prev || fetchedCinemas[0]);
+      }
     } catch (err) {
       toast.error('Lỗi khi tải danh sách rạp');
     } finally {
