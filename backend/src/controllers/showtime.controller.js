@@ -140,8 +140,41 @@ export const createShowtime = async (req, res, next) => {
  */
 export const updateShowtime = async (req, res, next) => {
   try {
-    const showtime = await Showtime.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const { movie, room, startTime, basePrice } = req.body;
+    let showtime = await Showtime.findById(req.params.id);
     if (!showtime) throw new ApiError(404, 'Không tìm thấy suất chiếu');
+
+    // 1. If movie or startTime changes, recalculate endTime
+    if (movie || startTime) {
+      const movieDoc = await Movie.findById(movie || showtime.movie);
+      const start = new Date(startTime || showtime.startTime);
+      const end = new Date(start.getTime() + (movieDoc?.duration + 30) * 60000);
+      req.body.endTime = end;
+      req.body.startTimeDisplay = start.toLocaleString('vi-VN');
+    }
+
+    // 2. If room or basePrice changes, recalculate seats
+    if (room || basePrice) {
+      const roomDoc = await Room.findById(room || showtime.room);
+      const bp = basePrice || showtime.basePrice;
+      const seats = roomDoc.seats.map(s => ({
+        seat: s._id,
+        status: s.isActive ? 'available' : 'booked',
+        price: s.type === 'vip' ? bp * 1.2 : (s.type === 'couple' ? bp * 2 : bp)
+      }));
+      req.body.seats = seats;
+      
+      const cinemaDoc = await Cinema.findById(roomDoc.cinema);
+      req.body.roomName = roomDoc.name;
+      req.body.cinemaName = cinemaDoc?.name;
+    }
+
+    if (movie) {
+        const movieDoc = await Movie.findById(movie);
+        req.body.movieTitle = movieDoc?.title;
+    }
+
+    showtime = await Showtime.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(new ApiResponse(200, showtime, 'Cập nhật thành công'));
   } catch (error) { next(error); }
 };

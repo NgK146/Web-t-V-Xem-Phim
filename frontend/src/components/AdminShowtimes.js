@@ -9,6 +9,7 @@ const AdminShowtimes = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   const [form, setForm] = useState({
     movie: '',
@@ -41,7 +42,7 @@ const AdminShowtimes = () => {
 
   const handleCinemaChange = async (e) => {
     const cinemaId = e.target.value;
-    setForm({ ...form, cinema: cinemaId, room: '' });
+    setForm(prev => ({ ...prev, cinema: cinemaId, room: '' }));
     if (cinemaId) {
       try {
         const res = await api.get(`/cinemas/${cinemaId}/rooms`);
@@ -54,6 +55,34 @@ const AdminShowtimes = () => {
     }
   };
 
+  const handleEdit = async (s) => {
+    setEditingId(s._id);
+    const startDate = new Date(s.startTime);
+    const yyyy = startDate.getFullYear();
+    const mm = String(startDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(startDate.getDate()).padStart(2, '0');
+    const hh = String(startDate.getHours()).padStart(2, '0');
+    const min = String(startDate.getMinutes()).padStart(2, '0');
+
+    setForm({
+      movie: s.movie?._id,
+      cinema: s.room?.cinema?._id,
+      room: s.room?._id,
+      date: `${yyyy}-${mm}-${dd}`,
+      time: `${hh}:${min}`,
+      basePrice: s.basePrice
+    });
+
+    // Populate rooms for the cinema
+    if (s.room?.cinema?._id) {
+        try {
+            const res = await api.get(`/cinemas/${s.room.cinema._id}/rooms`);
+            setRooms(res.data.data);
+        } catch (err) { toast.error('Lỗi khi tải phòng'); }
+    }
+    setShowModal(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -61,21 +90,30 @@ const AdminShowtimes = () => {
       if (!selectedMovie) return;
 
       const startTime = new Date(`${form.date}T${form.time}`);
-      const endTime = new Date(startTime.getTime() + (selectedMovie.duration + 30) * 60000); // Duration + 30m break
+      const endTime = new Date(startTime.getTime() + (selectedMovie.duration + 30) * 60000);
 
-      await api.post('/showtimes', {
+      const payload = {
         movie: form.movie,
         room: form.room,
         startTime,
         endTime,
         basePrice: form.basePrice
-      });
+      };
 
-      toast.success('Tạo suất chiếu thành công');
+      if (editingId) {
+        await api.put(`/showtimes/${editingId}`, payload);
+        toast.success('Cập nhật suất chiếu thành công');
+      } else {
+        await api.post('/showtimes', payload);
+        toast.success('Tạo suất chiếu thành công');
+      }
+
       setShowModal(false);
+      setEditingId(null);
+      setForm({ movie: '', cinema: '', room: '', date: '', time: '', basePrice: 90000 });
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Lỗi khi tạo suất chiếu');
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu suất chiếu');
     }
   };
 
@@ -98,7 +136,11 @@ const AdminShowtimes = () => {
             <h1 className="admin-title">Quản Lý Suất Chiếu</h1>
             <p className="admin-subtitle">Thiết lập lịch chiếu phim cho các rạp</p>
           </div>
-          <button className="movie-btn-add" onClick={() => setShowModal(true)}>
+          <button className="movie-btn-add" onClick={() => { 
+            setEditingId(null); 
+            setForm({ movie: '', cinema: '', room: '', date: '', time: '', basePrice: 90000 });
+            setShowModal(true); 
+          }}>
             ➕ Thêm Suất Chiếu
           </button>
         </div>
@@ -137,6 +179,7 @@ const AdminShowtimes = () => {
                     </span>
                   </td>
                   <td>
+                    <button className="action-btn" style={{ marginRight: '8px' }} onClick={() => handleEdit(s)}>✏️</button>
                     <button className="action-btn" onClick={() => handleDelete(s._id)}>🗑️</button>
                   </td>
                 </tr>
@@ -150,7 +193,7 @@ const AdminShowtimes = () => {
         <div className="movie-modal-overlay">
           <div className="movie-modal" style={{ maxWidth: '600px' }}>
             <div className="movie-modal-header">
-              <h2>Tạo Suất Chiếu Mới</h2>
+              <h2>{editingId ? 'Cập Nhật Suất Chiếu' : 'Tạo Suất Chiếu Mới'}</h2>
               <button onClick={() => setShowModal(false)}>✕</button>
             </div>
             <form onSubmit={handleSubmit} className="movie-form">
@@ -196,7 +239,7 @@ const AdminShowtimes = () => {
               </p>
               <div className="movie-form-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Hủy</button>
-                <button type="submit" className="btn-primary">Tạo Suất Chiếu</button>
+                <button type="submit" className="btn-primary">{editingId ? 'Cập Nhật' : 'Tạo Suất Chiếu'}</button>
               </div>
             </form>
           </div>

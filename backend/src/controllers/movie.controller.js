@@ -1,4 +1,5 @@
 import Movie from '../models/Movie.js';
+import Showtime from '../models/Showtime.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import { buildPagination } from '../utils/pagination.js';
@@ -32,7 +33,24 @@ export const getMovies = async (req, res, next) => {
     const filter = {};
     if (q)       filter.$text = { $search: q };
     if (genre)   filter.genre = { $in: genre.split(',') };
-    if (status)  filter.status = status;
+    
+    if (status === 'today') {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+
+      // Find unique movie IDs that have scheduled showtimes today
+      const showtimesToday = await Showtime.find({
+        startTime: { $gte: startOfDay, $lte: endOfDay },
+        status: 'scheduled'
+      }).distinct('movie');
+
+      filter._id = { $in: showtimesToday };
+    } else if (status) {
+      filter.status = status;
+    }
+
     if (rated)   filter.rated = rated;
 
     const { skip, pagination } = buildPagination(page, limit,

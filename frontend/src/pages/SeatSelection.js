@@ -153,7 +153,7 @@ const SeatSelection = () => {
   const rowNames = Object.keys(rows).sort();
 
   const totalPrice = selectedSeatIds.reduce((sum, sid) => {
-    const sw = showtime.seats?.find(s => s.seat.toString() === sid);
+    const sw = showtime.seats?.find(s => s.seat?.toString() === sid);
     return sum + (sw?.price || showtime.basePrice || 0);
   }, 0);
 
@@ -404,16 +404,20 @@ const SeatSelection = () => {
         .ss-legend-item { display:flex; align-items:center; gap:8px; font-size:13px; color:rgba(255,255,255,0.55); }
         .ss-legend-swatch { pointer-events:none; border-radius:5px 5px 3px 3px; }
 
-        /* Checkout bar */
+        /* Checkout bar - Floating */
         .ss-checkout {
-          position:sticky; bottom:0; z-index:100;
+          position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+          z-index:100; width:92%; max-width:1000px;
           display:flex; justify-content:space-between; align-items:center;
-          background:rgba(10,10,18,0.97); backdrop-filter:blur(24px);
-          border-top:1px solid rgba(255,255,255,0.08);
-          padding:14px 32px;
-          box-shadow:0 -12px 40px rgba(0,0,0,0.5);
+          background:rgba(15,15,25,0.85); backdrop-filter:blur(20px);
+          border:1px solid rgba(255,255,255,0.1);
+          border-radius:24px;
+          padding:18px 32px;
+          box-shadow:0 20px 50px rgba(0,0,0,0.6);
+          animation:ssSlideUp 0.6s cubic-bezier(0.16,1,0.3,1);
           gap:16px;
         }
+        @keyframes ssSlideUp { from{transform:translate(-50%, 100%); opacity:0;} to{transform:translate(-50%, 0); opacity:1;} }
         .ss-checkout-left { display:flex; flex-direction:column; gap:3px; }
         .ss-checkout-count { font-size:13px; color:rgba(255,255,255,0.45); }
         .ss-checkout-seats { font-size:15px; font-weight:700; color:#fff; }
