@@ -197,7 +197,7 @@ const MyTicketsModal = ({ onClose }) => {
 
   const statusLabel = (s) => {
     if (s === 'confirmed') return { text: '✅ Đã xác nhận', cls: 'confirmed' };
-    if (s === 'pending')   return { text: '⏳ Chờ xác nhận', cls: 'pending' };
+    if (s === 'pending') return { text: '⏳ Chờ xác nhận', cls: 'pending' };
     if (s === 'cancelled') return { text: '❌ Đã hủy', cls: 'cancelled' };
     return { text: s, cls: '' };
   };
@@ -217,8 +217,8 @@ const MyTicketsModal = ({ onClose }) => {
             // Use snapshot as primary (more reliable) fallback to populated showtime
             const movieTitle = b.movieTitle || b.showtime?.movie?.title;
             const cinemaName = b.cinemaName || b.showtime?.room?.cinema?.name;
-            const roomName   = b.roomName   || b.showtime?.room?.name;
-            const startTime  = b.showstartTime ? new Date(b.showstartTime) : (b.showtime?.startTime ? new Date(b.showtime.startTime) : null);
+            const roomName = b.roomName || b.showtime?.room?.name;
+            const startTime = b.showstartTime ? new Date(b.showstartTime) : (b.showtime?.startTime ? new Date(b.showtime.startTime) : null);
             return (
               <div key={b._id} className="cb-ticket-item">
                 {/* Header row */}
@@ -236,8 +236,8 @@ const MyTicketsModal = ({ onClose }) => {
                 {(cinemaName || roomName || startTime) && (
                   <div className="cb-ticket-details">
                     {cinemaName && <span>🏛️ {cinemaName}</span>}
-                    {roomName   && <span>🚪 {roomName}</span>}
-                    {startTime    && (
+                    {roomName && <span>🚪 {roomName}</span>}
+                    {startTime && (
                       <span>🕐 {startTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} &nbsp;
                         {startTime.toLocaleDateString('vi-VN')}</span>
                     )}
@@ -353,17 +353,18 @@ const Home = () => {
   return (
     <div className="cb-home">
       {/* ===== MODALS ===== */}
-      {modal === 'cinemas'  && <CinemaListModal  onClose={() => setModal(null)} />}
-      {modal === 'contact'  && <ContactModal      onClose={() => setModal(null)} />}
-      {modal === 'rent'     && <RentCinemaModal   onClose={() => setModal(null)} />}
-      {modal === 'news'     && <NewsModal          onClose={() => setModal(null)} />}
-      {modal === 'tickets'  && <MyTicketsModal     onClose={() => setModal(null)} />}
+      {modal === 'cinemas' && <CinemaListModal onClose={() => setModal(null)} />}
+      {modal === 'contact' && <ContactModal onClose={() => setModal(null)} />}
+      {modal === 'rent' && <RentCinemaModal onClose={() => setModal(null)} />}
+      {modal === 'news' && <NewsModal onClose={() => setModal(null)} />}
+      {modal === 'tickets' && <MyTicketsModal onClose={() => setModal(null)} />}
 
       {/* ===== HEADER ===== */}
       <header className="cb-header">
         <div className="cb-header-top">
           <div className="cb-header-top-links">
             <span style={{ cursor: 'pointer' }} onClick={() => setModal('news')}>TIN MỚI & ƯU ĐÃI</span>
+            {user && <span style={{ cursor: 'pointer' }} onClick={() => navigate('/profile')}>HỒ SƠ & HẠNG THẺ</span>}
             <span style={{ cursor: 'pointer' }} onClick={() => setModal('tickets')}>VÉ CỦA TÔI</span>
             {user ? (
               <span onClick={handleLogout} style={{ cursor: 'pointer' }}>ĐĂNG XUẤT</span>
@@ -385,7 +386,7 @@ const Home = () => {
           <nav className="cb-nav">
             <div className="cb-nav-link" onClick={() => { setFilters(f => ({ ...f, status: 'now_showing' })); scrollTo(movieSectionRef); }}>PHIM</div>
             <div className="cb-nav-link" onClick={() => setModal('cinemas')}>HỆ THỐNG RẠP</div>
-            <div className="cb-nav-link" onClick={() => setModal('tickets')}>THÀNH VIÊN</div>
+            <div className="cb-nav-link" onClick={() => navigate('/profile')}>THÀNH VIÊN</div>
             <div className="cb-nav-link" onClick={() => scrollTo(eventSectionRef)}>TIỆN ÍCH</div>
           </nav>
 
@@ -451,10 +452,10 @@ const Home = () => {
 
         <div className="cb-event-grid">
           {[
-            { bg: '#c2150a', label: 'CB Member', desc: 'Ưu đãi thành viên', action: () => setModal('tickets') },
-            { bg: '#e53e3e', label: 'Ticket Sale', desc: 'Giảm 30% thứ Tư',  action: () => setModal('news') },
-            { bg: '#ed8936', label: 'Combo 50%',  desc: 'Bắp rang + nước',  action: () => setModal('news') },
-            { bg: '#222',    label: 'New Movie',  desc: 'Phim mới ra mắt',   action: () => { setFilters(f => ({ ...f, status: 'coming_soon' })); scrollTo(movieSectionRef); } },
+            { bg: '#c2150a', label: 'CB Member', desc: 'Ưu đãi thành viên', action: () => navigate('/profile') },
+            { bg: '#e53e3e', label: 'Ticket Sale', desc: 'Giảm 30% thứ Tư', action: () => setModal('news') },
+            { bg: '#ed8936', label: 'Combo 50%', desc: 'Bắp rang + nước', action: () => setModal('news') },
+            { bg: '#222', label: 'New Movie', desc: 'Phim mới ra mắt', action: () => { setFilters(f => ({ ...f, status: 'coming_soon' })); scrollTo(movieSectionRef); } },
           ].map((ev, i) => (
             <div
               key={i}
@@ -510,7 +511,7 @@ const Home = () => {
             <ul>
               <li>Hotline: 1900 6017</li>
               <li>Giờ làm việc: 8:00 - 22:00</li>
-              <li>Email: hoidap@cinebooking.vn</li>
+              <li>Email: cinebooking@gmail.vn</li>
             </ul>
           </div>
         </div>
