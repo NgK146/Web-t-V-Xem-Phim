@@ -5,6 +5,7 @@ import { bookingsApi } from '../api/bookings.api';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-toastify';
 import { io } from 'socket.io-client';
+import { discountsApi } from '../api/discounts.api';
 
 const LOCK_SECONDS = 5 * 60;
 
@@ -24,10 +25,20 @@ const SeatSelection = () => {
   const timerRef                = useRef(null);
   const lockedSeatsRef          = useRef([]);
 
+  // Discount UI State
+  const [discountCodeInput, setDiscountCodeInput] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState(null);
+  const [loadingDiscount, setLoadingDiscount] = useState(false);
+
+  // Reset discount if seats change
+  useEffect(() => {
+    setAppliedDiscount(null);
+  }, [selectedSeatIds]);
+
   // ─── Timer ───────────────────────────────────────────────
-  const startTimer = useCallback(() => {
+  const startTimer = useCallback((initialSeconds = LOCK_SECONDS) => {
     clearInterval(timerRef.current);
-    setTimeLeft(LOCK_SECONDS);
+    setTimeLeft(initialSeconds);
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => (prev <= 1 ? (clearInterval(timerRef.current), 0) : prev - 1));
     }, 1000);
@@ -77,11 +88,38 @@ const SeatSelection = () => {
   const fetchShowtime = useCallback(async () => {
     try {
       const res = await showtimesApi.getDetails(id);
-      setShowtime(res.data.data);
-      setRoomSeats(res.data.data.room?.seats || []);
+      const data = res.data.data;
+      setShowtime(data);
+      setRoomSeats(data.room?.seats || []);
+
+      // Restore locked seats for current user upon reload
+      if (user) {
+        let minTimeLeft = LOCK_SECONDS; 
+        const myLockedSeats = [];
+        const now = new Date().getTime();
+
+        data.seats?.forEach(s => {
+          const uId = user.id || user._id;
+          if (s.status === 'locked' && s.lockedBy === uId && s.lockedAt) {
+            const expTime = new Date(s.lockedAt).getTime();
+            if (expTime > now) {
+              myLockedSeats.push(s.seat.toString());
+              const remainingSec = Math.floor((expTime - now) / 1000);
+              minTimeLeft = Math.min(minTimeLeft, remainingSec);
+            }
+          }
+        });
+
+        if (myLockedSeats.length > 0 && lockedSeatsRef.current.length === 0) {
+          lockedSeatsRef.current = myLockedSeats;
+          setSelectedSeatIds(myLockedSeats);
+          startTimer(minTimeLeft);
+        }
+      }
+
     } catch { toast.error('Không thể tải suất chiếu'); }
     finally { setLoading(false); }
-  }, [id]);
+  }, [id, user, startTimer]);
 
   useEffect(() => { fetchShowtime(); }, [fetchShowtime]);
 
@@ -121,12 +159,44 @@ const SeatSelection = () => {
     }
   };
 
-  // ─── Booking ─────────────────────────────────────────────
+  // ─── Booking & Discount ─────────────────────────────────────────────
+  const handleApplyDiscount = async () => {
+    if (!discountCodeInput.trim()) return;
+    if (selectedSeatIds.length === 0) {
+      toast.warning('Vui lòng chọn ghế trước khi áp dụng mã giảm giá');
+      return;
+    }
+    setLoadingDiscount(true);
+    try {
+      // Calculate current totalPrice to validate
+      const currentTotal = selectedSeatIds.reduce((sum, sid) => {
+        const sw = showtime.seats?.find(s => s.seat?.toString() === sid);
+        return sum + (sw?.price || showtime.basePrice || 0);
+      }, 0);
+      
+      const res = await discountsApi.validate({ code: discountCodeInput.trim(), amount: currentTotal });
+      setAppliedDiscount({
+        code: res.data.data.code,
+        discountAmount: res.data.data.discountAmount
+      });
+      toast.success('Áp dụng mã giảm giá thành công!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể áp dụng mã');
+      setAppliedDiscount(null);
+    } finally {
+      setLoadingDiscount(false);
+    }
+  };
+
   const handleBooking = async () => {
     if (!selectedSeatIds.length) { toast.warning('Vui lòng chọn ít nhất 1 ghế'); return; }
     setBooking(true);
     try {
-      await bookingsApi.create({ showtimeId: id, seatIds: selectedSeatIds });
+      await bookingsApi.create({ 
+        showtimeId: id, 
+        seatIds: selectedSeatIds,
+        discountCode: appliedDiscount?.code 
+      });
       lockedSeatsRef.current = [];
       stopTimer();
       toast.success('🎉 Đặt vé thành công!');
@@ -166,6 +236,8 @@ const SeatSelection = () => {
     const s = roomSeats.find(x => x._id === sid);
     return s ? `${s.row}${s.number}` : '';
   }).join(', ');
+
+  const finalPrice = appliedDiscount ? Math.max(0, totalPrice - appliedDiscount.discountAmount) : totalPrice;
 
   return (
     <div className="ss-root">
@@ -290,10 +362,45 @@ const SeatSelection = () => {
           )}
         </div>
 
+        <div className="ss-checkout-middle">
+          <div className="ss-discount-wrap">
+            {appliedDiscount ? (
+              <div className="ss-discount-applied">
+                <span className="ss-discount-badge">🎟️ Mã: {appliedDiscount.code} (-{appliedDiscount.discountAmount.toLocaleString()}đ)</span>
+                <button className="ss-discount-remove" onClick={() => { setAppliedDiscount(null); setDiscountCodeInput(''); }}>✕</button>
+              </div>
+            ) : (
+              <>
+                <input 
+                  type="text" 
+                  placeholder="Nhập mã giảm giá..." 
+                  className="ss-discount-input"
+                  value={discountCodeInput}
+                  onChange={e => setDiscountCodeInput(e.target.value.toUpperCase())}
+                />
+                <button 
+                  className="ss-discount-btn" 
+                  onClick={handleApplyDiscount} 
+                  disabled={loadingDiscount || !discountCodeInput || selectedSeatIds.length === 0}
+                >
+                  {loadingDiscount ? '...' : 'Áp dụng'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
         <div className="ss-checkout-right">
           <div className="ss-checkout-price-wrap">
             <div className="ss-checkout-price-label">Tổng thanh toán</div>
-            <div className="ss-checkout-price">{totalPrice.toLocaleString()} đ</div>
+            {appliedDiscount ? (
+              <div className="ss-checkout-price-discount-group">
+                <span className="ss-checkout-price old">{totalPrice.toLocaleString()} đ</span>
+                <span className="ss-checkout-price new">{finalPrice.toLocaleString()} đ</span>
+              </div>
+            ) : (
+              <div className="ss-checkout-price">{totalPrice.toLocaleString()} đ</div>
+            )}
           </div>
           <button
             className={`ss-checkout-btn ${selectedSeatIds.length > 0 && !booking ? 'active' : ''}`}
@@ -441,6 +548,23 @@ const SeatSelection = () => {
           box-shadow:0 8px 24px rgba(231,26,15,0.35);
         }
         .ss-checkout-btn.active:hover { transform:translateY(-2px); box-shadow:0 12px 32px rgba(231,26,15,0.5); }
+        
+        /* Discount Styles */
+        .ss-checkout-middle { display:flex; flex:1; justify-content:center; }
+        .ss-discount-wrap { display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); padding:6px; border-radius:12px; }
+        .ss-discount-input { background:transparent; border:none; color:#fff; padding:8px 12px; width:150px; outline:none; font-size:14px; text-transform:uppercase; font-family:inherit; }
+        .ss-discount-input::placeholder { color:rgba(255,255,255,0.3); text-transform:none; }
+        .ss-discount-btn { background:rgba(255,255,255,0.1); border:none; color:#fff; padding:8px 16px; border-radius:8px; font-weight:600; cursor:pointer; transition:all 0.2s; font-size:13px; }
+        .ss-discount-btn:hover:not(:disabled) { background:rgba(255,255,255,0.2); }
+        .ss-discount-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .ss-discount-applied { display:flex; align-items:center; gap:12px; padding:6px 14px; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3); border-radius:8px; }
+        .ss-discount-badge { font-size:13px; font-weight:600; color:#4ade80; }
+        .ss-discount-remove { background:rgba(255,255,255,0.1); border:none; border-radius:50%; width:24px; height:24px; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; transition:0.2s; }
+        .ss-discount-remove:hover { background:rgba(239,68,68,0.3); color:#f87171; }
+        
+        .ss-checkout-price-discount-group { display:flex; flex-direction:column; align-items:flex-end; }
+        .ss-checkout-price.old { font-size:14px; color:rgba(255,255,255,0.4); text-decoration:line-through; font-weight:500; }
+        .ss-checkout-price.new { font-size:28px; font-weight:900; color:#4ade80; }
       `}</style>
     </div>
   );
