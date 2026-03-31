@@ -37,11 +37,21 @@ export const createBooking = async (req, res, next) => {
       if (seatIndex === -1) throw new ApiError(400, 'Ghế không tồn tại');
 
       const seat = showtime.seats[seatIndex];
-      if (seat.status !== 'available' && !(
-        seat.status === 'locked' &&
-        seat.lockedBy?.toString() === req.user._id.toString()
-      )) {
-        throw new ApiError(400, `Ghế đã được đặt hoặc đang bị giữ`);
+      const now = new Date();
+      if (seat.status === 'booked') {
+        throw new ApiError(400, `Ghế đã được đặt`);
+      }
+
+      if (seat.status === 'locked') {
+        const isExpired = seat.lockedAt && now > seat.lockedAt;
+        const isMyLock = seat.lockedBy?.toString() === req.user._id.toString();
+
+        if (!isExpired && !isMyLock) {
+          throw new ApiError(400, `Ghế đang được người khác giữ`);
+        }
+        if (isExpired && isMyLock) {
+          throw new ApiError(400, `Thời gian giữ ghế đã hết hạn, vui lòng chọn lại`);
+        }
       }
 
       // Tìm thông tin ghế từ room
@@ -154,9 +164,13 @@ export const lockSeats = async (req, res, next) => {
       if (idx === -1) throw new ApiError(400, 'Ghế không tồn tại');
 
       const seat = showtime.seats[idx];
+      const now = new Date();
       if (seat.status === 'booked') throw new ApiError(400, 'Ghế đã được đặt');
-      if (seat.status === 'locked' && seat.lockedBy?.toString() !== req.user._id.toString()) {
-        throw new ApiError(400, 'Ghế đang được người khác giữ');
+      if (seat.status === 'locked') {
+        const isExpired = seat.lockedAt && now > seat.lockedAt;
+        if (!isExpired && seat.lockedBy?.toString() !== req.user._id.toString()) {
+          throw new ApiError(400, 'Ghế đang được người khác giữ');
+        }
       }
 
       showtime.seats[idx].status   = 'locked';
@@ -171,6 +185,42 @@ export const lockSeats = async (req, res, next) => {
       showtimeId,
       seats: seatIds.map(id => ({ id, status: 'locked' })),
     });
+
+    // Tự động nhả ghế sau 5 phút nếu chưa thanh toán
+    setTimeout(async () => {
+      try {
+        const currentShowtime = await Showtime.findById(showtimeId);
+        if (!currentShowtime) return;
+
+        let changed = false;
+        const unlockedSeats = [];
+        
+        for (const seatId of seatIds) {
+          const idx = currentShowtime.seats.findIndex(s => s.seat.toString() === seatId);
+          if (idx !== -1) {
+            const seat = currentShowtime.seats[idx];
+            // Nếu vẫn là locked và đã quá hạn
+            if (seat.status === 'locked' && seat.lockedAt && new Date() >= new Date(seat.lockedAt)) {
+              currentShowtime.seats[idx].status = 'available';
+              currentShowtime.seats[idx].lockedBy = undefined;
+              currentShowtime.seats[idx].lockedAt = undefined;
+              unlockedSeats.push(seatId);
+              changed = true;
+            }
+          }
+        }
+
+        if (changed) {
+          await currentShowtime.save();
+          io.to(showtimeId).emit('seats_updated', {
+            showtimeId,
+            seats: unlockedSeats.map(id => ({ id, status: 'available' })),
+          });
+        }
+      } catch (error) {
+        console.error('Error auto-unlocking seats:', error);
+      }
+    }, 5 * 60 * 1000 + 2000); // 5 phút + 2 giây để chắc chắn hết hạn
 
     res.json(new ApiResponse(200, { lockedUntil: lockExpiry }, 'Ghế đã được giữ trong 5 phút'));
   } catch (err) { next(err); }
