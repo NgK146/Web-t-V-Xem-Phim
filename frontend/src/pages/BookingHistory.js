@@ -14,7 +14,11 @@ const BookingHistory = () => {
     const navigate = useNavigate();
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [qrModal, setQrModal] = useState(null); // booking for modal
+    const [qrModal, setQrModal] = useState(null);
+    const [cancelModal, setCancelModal] = useState(null);
+    const [cancelling, setCancelling] = useState(false);
+    const [cancelReason, setCancelReason] = useState('Bận việc đột xuất');
+    const [cancelNote, setCancelNote] = useState('');
 
     useEffect(() => {
         bookingsApi.getMyHistory()
@@ -22,6 +26,23 @@ const BookingHistory = () => {
             .catch(() => toast.error('Không thể tải lịch sử đặt vé'))
             .finally(() => setLoading(false));
     }, []);
+
+    const handleCancelConfirm = async () => {
+        if (!cancelModal) return;
+        setCancelling(true);
+        try {
+            await bookingsApi.cancel(cancelModal._id, cancelReason + (cancelNote ? ': ' + cancelNote : ''));
+            toast.success('Hủy vé thành công!');
+            setBookings(prev => prev.map(b => b._id === cancelModal._id ? { ...b, status: 'cancelled' } : b));
+            setCancelModal(null);
+            setCancelReason('Bận việc đột xuất');
+            setCancelNote('');
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Không thể hủy vé này');
+        } finally {
+            setCancelling(false);
+        }
+    };
 
     const getMoviePoster = (b) =>
         b.showtime?.movie?.poster || null;
@@ -94,7 +115,7 @@ const BookingHistory = () => {
                                         </div>
                                     </div>
 
-                                    {/* Right: Status + QR */}
+                                    {/* Right: Status + QR + Cancel */}
                                     <div className="bh-card-right">
                                         <div className="bh-status-badge" style={{ color: status.color, borderColor: status.color }}>
                                             {status.label}
@@ -102,6 +123,11 @@ const BookingHistory = () => {
                                         {b.qrCode && b.status === 'confirmed' && (
                                             <button className="bh-qr-btn" onClick={() => setQrModal(b)}>
                                                 📱 Xem QR
+                                            </button>
+                                        )}
+                                        {b.status === 'confirmed' && (
+                                            <button className="bh-cancel-btn" onClick={() => { setCancelModal(b); setCancelReason(''); }}>
+                                                🗑️ Hủy vé
                                             </button>
                                         )}
                                     </div>
@@ -132,6 +158,51 @@ const BookingHistory = () => {
                         <div className="bh-modal-qr-wrap">
                             <img src={qrModal.qrCode} alt="QR Code" className="bh-modal-qr" />
                             <p>Quét mã này tại quầy vé để nhận vé</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Cancel Confirmation Modal */}
+            {cancelModal && (
+                <div className="bh-modal-overlay" onClick={() => !cancelling && setCancelModal(null)}>
+                    <div className="bh-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+                        <button className="bh-modal-close" onClick={() => setCancelModal(null)} disabled={cancelling}>✕</button>
+                        <div className="bh-modal-title">🗑️ Hủy Vé</div>
+                        <div className="bh-modal-code">{cancelModal.bookingCode}</div>
+                        <p style={{ color: '#aaa', fontSize: '14px', marginBottom: '16px', textAlign: 'left' }}>
+                            Bạn có chắc muốn hủy vé <strong style={{ color: '#fff' }}>{getMovieTitle(cancelModal)}</strong>?<br />
+                            <span style={{ color: '#f87171', fontSize: '12px' }}>Lưu ý: Chỉ hủy được trước suất chiếu 2 tiếng.</span>
+                        </p>
+                        <div style={{ marginBottom: '20px', textAlign: 'left' }}>
+                            <label style={{ color: '#888', fontSize: '12px', display: 'block', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>Lý do hủy:</label>
+                            {['Bận việc đột xuất', 'Đặt nhầm suất chiếu', 'Đặt nhầm phim', 'Đặt nhầm rạp', 'Lý do khác'].map(r => (
+                                <label key={r} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', marginBottom: '8px', background: cancelReason === r ? 'rgba(229,9,20,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${cancelReason === r ? 'rgba(229,9,20,0.4)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '8px', cursor: 'pointer', fontSize: '14px', transition: '0.15s' }}>
+                                    <input type="radio" name="cancelReason" value={r} checked={cancelReason === r} onChange={() => setCancelReason(r)} style={{ accentColor: '#e50914' }} />
+                                    {r}
+                                </label>
+                            ))}
+                            {cancelReason === 'Lý do khác' && (
+                                <textarea
+                                    rows={2}
+                                    placeholder="Mô tả thêm..."
+                                    value={cancelNote}
+                                    onChange={e => setCancelNote(e.target.value)}
+                                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', padding: '12px', fontSize: '14px', fontFamily: 'inherit', resize: 'none', outline: 'none', boxSizing: 'border-box', marginTop: '4px' }}
+                                />
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => setCancelModal(null)}
+                                disabled={cancelling}
+                                style={{ flex: 1, padding: '14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#fff', cursor: 'pointer', fontWeight: '600', fontSize: '14px' }}
+                            >Giữ Lại</button>
+                            <button
+                                onClick={handleCancelConfirm}
+                                disabled={cancelling}
+                                style={{ flex: 1, padding: '14px', background: cancelling ? '#555' : '#dc2626', border: 'none', borderRadius: '10px', color: '#fff', cursor: cancelling ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '14px' }}
+                            >{cancelling ? '⌛ Đang hủy...' : '✔ Xác nhận hủy'}</button>
                         </div>
                     </div>
                 </div>
@@ -179,6 +250,8 @@ const BookingHistory = () => {
         .bh-status-badge { font-size:11px; font-weight:700; letter-spacing:1px; padding:5px 12px; border-radius:20px; border:1px solid; text-transform:uppercase; }
         .bh-qr-btn { background:rgba(229,9,20,0.1); border:1px solid rgba(229,9,20,0.3); color:#e50914; padding:10px 16px; border-radius:10px; cursor:pointer; font-size:13px; font-weight:600; transition:0.2s; white-space:nowrap; }
         .bh-qr-btn:hover { background:#e50914; color:#fff; }
+        .bh-cancel-btn { background:rgba(239,68,68,0.07); border:1px solid rgba(239,68,68,0.25); color:#f87171; padding:8px 14px; border-radius:10px; cursor:pointer; font-size:12px; font-weight:600; transition:0.2s; white-space:nowrap; }
+        .bh-cancel-btn:hover { background:rgba(239,68,68,0.2); }
 
         /* Modal */
         .bh-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px; }
