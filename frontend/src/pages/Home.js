@@ -365,7 +365,7 @@ const Home = () => {
           <div className="cb-header-top-links">
             <span style={{ cursor: 'pointer' }} onClick={() => setModal('news')}>TIN MỚI & ƯU ĐÃI</span>
             {user && <span style={{ cursor: 'pointer' }} onClick={() => navigate('/profile')}>HỒ SƠ & HẠNG THẺ</span>}
-            <span style={{ cursor: 'pointer' }} onClick={() => setModal('tickets')}>VÉ CỦA TÔI</span>
+            {user && <span style={{ cursor: 'pointer' }} onClick={() => navigate('/my-bookings')}>🎟️ VÉ CỦA TÔI</span>}
             {user ? (
               <span onClick={handleLogout} style={{ cursor: 'pointer' }}>ĐĂNG XUẤT</span>
             ) : (

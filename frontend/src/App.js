@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
+import BookingHistory from './pages/BookingHistory';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
@@ -30,50 +31,59 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
-        
+
         {/* Protected Routes */}
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
             <ProtectedRoute>
               <Home />
             </ProtectedRoute>
-          } 
+          }
         />
-        
-        <Route 
-          path="/profile" 
+
+        <Route
+          path="/profile"
           element={
             <ProtectedRoute>
               <Profile />
             </ProtectedRoute>
-          } 
-        />
-        
-        <Route 
-          path="/movie/:id" 
-          element={
-             <MovieDetails />
-          } 
+          }
         />
 
-        <Route 
-          path="/showtimes/:id" 
+        <Route
+          path="/my-bookings"
+          element={
+            <ProtectedRoute>
+              <BookingHistory />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/movie/:id"
+          element={
+            <MovieDetails />
+          }
+        />
+
+        <Route
+          path="/showtimes/:id"
           element={
             <ProtectedRoute>
               <SeatSelection />
             </ProtectedRoute>
-          } 
+          }
         />
-        
+
         {/* Admin Routes */}
-        <Route 
-          path="/admin" 
+        <Route
+          path="/admin"
           element={
             <AdminRoute>
               <AdminDashboard />
             </AdminRoute>
-          } 
+          }
         />
       </Routes>
     </ErrorBoundary>
