@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Movie Ticket Booking</title>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="container">
+          <h1>🍿 MovieTickets</h1>
+          <div class="filters">
+            <input type="text" id="searchInput" placeholder="Search movies by title..." />
+            <select id="genreFilter">
+              <option value="All">All Genres</option>
+              <option value="Action">Action</option>
+              <option value="Sci-Fi">Sci-Fi</option>
+              <option value="Drama">Drama</option>
+              <option value="Thriller">Thriller</option>
+              <option value="Animation">Animation</option>
+              <option value="Comedy">Comedy</option>
+            </select>
+          </div>
+        </div>
+      </header>
+      <main class="container">
+        <div id="movieGrid" class="movie-grid"></div>
+        <div id="noResults" class="no-results hidden">No movies found...</div>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
