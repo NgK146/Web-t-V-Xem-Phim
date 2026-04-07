@@ -1,0 +1,151 @@
+.fs-container {
+  padding: 10px 0 40px;
+}
+
+.fs-section {
+  margin-bottom: 30px;
+}
+
+.fs-section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 16px;
+  border-left: 4px solid #E71A0F;
+  padding-left: 10px;
+}
+
+.fs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.fs-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fs-card:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.fs-card-active {
+  background: rgba(231, 26, 15, 0.05);
+  border-color: rgba(231, 26, 15, 0.3);
+  box-shadow: 0 0 20px rgba(231, 26, 15, 0.15);
+}
+
+.fs-img-wrap {
+  width: 100%;
+  height: 160px;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.fs-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fs-img-placeholder {
+  font-size: 4rem;
+}
+
+.fs-info {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.fs-info h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 6px 0;
+}
+
+.fs-info p {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 16px 0;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.fs-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.fs-price {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #f87171;
+}
+
+.fs-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px 6px;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fs-controls button {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.fs-controls button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.fs-controls button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.fs-controls button.active {
+  background: #E71A0F;
+  color: #fff;
+}
+
+.fs-controls button.active:hover {
+  background: #ff4d4d;
+}
+
+.fs-controls span {
+  font-weight: 700;
+  font-size: 0.95rem;
+  min-width: 16px;
+  text-align: center;
+  color: #fff;
+}
