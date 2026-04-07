@@ -33,6 +33,7 @@ const bookingSchema = new mongoose.Schema({
   orderCode:  { type: Number, unique: true, sparse: true }, // For PayOS integration
   cancelledAt:{ type: Date },
   cancelReason:{ type: String },
+  reminderSent:{ type: Boolean, default: false },
 }, { timestamps: true });
 
 bookingSchema.index({ user: 1, createdAt: -1 });
