@@ -14,7 +14,7 @@ router.get('/:id',         getMovie);
 
 // Admin only
 router.post('/',    protect, authorize('admin'), uploadSingle('poster'), createMovie);
-router.put('/:id',  protect, authorize('admin'), updateMovie);
+router.put('/:id',  protect, authorize('admin'), uploadSingle('poster'), updateMovie);
 router.delete('/:id', protect, authorize('admin'), deleteMovie);
 
 export default router;

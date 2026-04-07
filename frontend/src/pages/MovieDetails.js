@@ -18,6 +18,7 @@ const MovieDetails = () => {
   const [rating, setRating] = useState(10);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -29,7 +30,13 @@ const MovieDetails = () => {
       ]);
       setMovie(movieRes.data.data);
       setReviews(reviewsRes.data.data);
-      setShowtimes(showtimesRes.data.data);
+      const stData = showtimesRes.data.data;
+      setShowtimes(stData);
+      
+      if (stData.length > 0) {
+        const firstDate = new Date(stData[0].startTime).toDateString();
+        setSelectedDate(firstDate);
+      }
     } catch (error) {
       console.error('Error fetching details:', error);
       toast.error('Không thể tải thông tin phim');
@@ -140,52 +147,112 @@ const MovieDetails = () => {
                 </h3>
                 {showtimes.length === 0 ? (
                   <p style={{ color: '#aaa', fontStyle: 'italic' }}>Phim chưa có lịch chiếu.</p>
-                ) : (
-                  <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                    {showtimes.map(st => (
-                      <button 
-                        key={st._id}
-                        onClick={() => navigate(`/showtimes/${st._id}`)}
-                        style={{ 
-                          padding: '12px 24px', 
-                          background: 'rgba(255,255,255,0.05)', 
-                          backdropFilter: 'blur(10px)',
-                          color: 'white', 
-                          border: '1px solid rgba(255,255,255,0.2)', 
-                          borderRadius: '8px', 
-                          cursor: 'pointer', 
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                        onMouseOver={(e) => {
-                          e.currentTarget.style.background = '#E71A0F';
-                          e.currentTarget.style.borderColor = '#E71A0F';
-                          e.currentTarget.style.transform = 'translateY(-4px)';
-                          e.currentTarget.style.boxShadow = '0 10px 20px rgba(231,26,15,0.4)';
-                        }}
-                        onMouseOut={(e) => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
-                          e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = 'none';
-                        }}
-                      >
-                        <span style={{ fontSize: '20px', fontWeight: 'bold' }}>
-                          {new Date(st.startTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
-                        </span>
-                        <span style={{ fontSize: '13px', opacity: 0.8 }}>
-                          {new Date(st.startTime).toLocaleDateString('vi-VN')}
-                        </span>
-                        <span style={{ fontSize: '11px', color: '#FFD700', marginTop: '4px', textTransform: 'uppercase' }}>
-                          {st.room.type} - {st.room.cinema.name.split('-')[0]}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                ) : (() => {
+                  const grouped = showtimes.reduce((acc, st) => {
+                    const dateStr = new Date(st.startTime).toDateString();
+                    if (!acc[dateStr]) acc[dateStr] = [];
+                    acc[dateStr].push(st);
+                    return acc;
+                  }, {});
+                  const dates = Object.keys(grouped).sort((a,b) => new Date(a) - new Date(b));
+                  
+                  return (
+                    <>
+                      {/* Date Tabs */}
+                      <div style={{ 
+                        display: 'flex', 
+                        gap: '10px', 
+                        marginBottom: '25px', 
+                        overflowX: 'auto', 
+                        paddingBottom: '10px',
+                        scrollbarWidth: 'none'
+                      }}>
+                        {dates.map(date => {
+                          const d = new Date(date);
+                          const isActive = selectedDate === date;
+                          return (
+                            <button
+                              key={date}
+                              onClick={() => setSelectedDate(date)}
+                              style={{
+                                padding: '10px 20px',
+                                background: isActive ? '#E71A0F' : 'rgba(255,255,255,0.05)',
+                                color: 'white',
+                                border: '1px solid',
+                                borderColor: isActive ? '#E71A0F' : 'rgba(255,255,255,0.2)',
+                                borderRadius: '12px',
+                                cursor: 'pointer',
+                                minWidth: '100px',
+                                transition: 'all 0.3s',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center'
+                              }}
+                            >
+                              <span style={{ fontSize: '12px', opacity: 0.7, textTransform: 'uppercase' }}>
+                                {d.toLocaleDateString('vi-VN', { weekday: 'short' })}
+                              </span>
+                              <span style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                                {d.getDate()}/{d.getMonth() + 1}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Showtimes for selected date */}
+                      <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                        {selectedDate && grouped[selectedDate] ? (
+                          grouped[selectedDate].map(st => (
+                            <button 
+                              key={st._id}
+                              onClick={() => navigate(`/showtimes/${st._id}`)}
+                              style={{ 
+                                padding: '15px 30px', 
+                                background: 'rgba(255,255,255,0.05)', 
+                                backdropFilter: 'blur(10px)',
+                                color: 'white', 
+                                border: '1px solid rgba(255,255,255,0.2)', 
+                                borderRadius: '12px', 
+                                cursor: 'pointer', 
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '4px',
+                                minWidth: '140px'
+                              }}
+                              onMouseOver={(e) => {
+                                e.currentTarget.style.background = '#E71A0F';
+                                e.currentTarget.style.borderColor = '#E71A0F';
+                                e.currentTarget.style.transform = 'translateY(-4px)';
+                                e.currentTarget.style.boxShadow = '0 10px 20px rgba(231,26,15,0.4)';
+                              }}
+                              onMouseOut={(e) => {
+                                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = 'none';
+                              }}
+                            >
+                              <span style={{ fontSize: '22px', fontWeight: 'bold' }}>
+                                {new Date(st.startTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
+                              </span>
+                              <span style={{ fontSize: '11px', color: '#FFD700', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                {st.room?.type || '2D'} • {st.room?.cinema?.name.replace('CGV - ', '') || 'Rạp'}
+                              </span>
+                              <span style={{ fontSize: '10px', opacity: 0.6 }}>
+                                {st.room?.name}
+                              </span>
+                            </button>
+                          ))
+                        ) : (
+                          <p style={{ color: '#aaa', fontStyle: 'italic' }}>Hôm nay không có suất chiếu, vui lòng chọn ngày khác.</p>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>

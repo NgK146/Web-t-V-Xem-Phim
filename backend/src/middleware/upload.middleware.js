@@ -1,23 +1,8 @@
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 
-const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'posters');
-// Ensure directory exists
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
+// Keep files in memory — we'll push them to Cloudinary in the controller/route
+const storage = multer.memoryStorage();
 
 export const uploadSingle = (fieldName) => {
-  return multer({ storage }).single(fieldName);
+  return multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }).single(fieldName);
 };

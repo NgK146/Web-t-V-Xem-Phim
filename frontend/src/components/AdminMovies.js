@@ -107,32 +107,26 @@ const AdminMovies = () => {
     e.preventDefault();
     setSaving(true);
     try {
+      // Always use FormData so we can attach poster file for both create & update
+      const fd = new FormData();
+      fd.append('title', form.title);
+      fd.append('description', form.description);
+      fd.append('director', form.director);
+      fd.append('duration', Number(form.duration));
+      fd.append('releaseDate', form.releaseDate);
+      fd.append('language', form.language);
+      fd.append('rated', form.rated);
+      fd.append('status', form.status);
+      if (form.endDate) fd.append('endDate', form.endDate);
+      if (form.trailer) fd.append('trailer', form.trailer);
+      form.genre.split(',').map(g => g.trim()).filter(Boolean).forEach(g => fd.append('genre', g));
+      form.cast.split(',').map(c => c.trim()).filter(Boolean).forEach(c => fd.append('cast', c));
+      if (posterFile) fd.append('poster', posterFile);
+
       if (editingMovie) {
-        // Update
-        const data = {
-          ...form,
-          genre: form.genre.split(',').map(g => g.trim()).filter(Boolean),
-          cast: form.cast.split(',').map(c => c.trim()).filter(Boolean),
-          duration: Number(form.duration),
-        };
-        await moviesApi.update(editingMovie._id, data);
+        await moviesApi.update(editingMovie._id, fd);
         toast.success('Cập nhật phim thành công');
       } else {
-        // Create with FormData for poster upload
-        const fd = new FormData();
-        fd.append('title', form.title);
-        fd.append('description', form.description);
-        fd.append('director', form.director);
-        fd.append('duration', Number(form.duration));
-        fd.append('releaseDate', form.releaseDate);
-        fd.append('language', form.language);
-        fd.append('rated', form.rated);
-        fd.append('status', form.status);
-        if (form.endDate) fd.append('endDate', form.endDate);
-        if (form.trailer) fd.append('trailer', form.trailer);
-        form.genre.split(',').map(g => g.trim()).filter(Boolean).forEach(g => fd.append('genre', g));
-        form.cast.split(',').map(c => c.trim()).filter(Boolean).forEach(c => fd.append('cast', c));
-        if (posterFile) fd.append('poster', posterFile);
         await moviesApi.create(fd);
         toast.success('Thêm phim thành công');
       }
@@ -357,15 +351,19 @@ const AdminMovies = () => {
                   <label>Trailer URL</label>
                   <input name="trailer" value={form.trailer} onChange={handleChange} placeholder="https://..." />
                 </div>
-                {!editingMovie && (
-                  <div className="movie-form-group movie-form-full">
-                    <label>Poster *</label>
-                    <input type="file" accept="image/*" onChange={handleFileChange} required={!editingMovie} />
-                    {posterPreview && (
-                      <img src={posterPreview} alt="Preview" className="movie-poster-preview" />
-                    )}
-                  </div>
-                )}
+                {/* Poster upload — show for both create AND edit */}
+                <div className="movie-form-group movie-form-full">
+                  <label>{editingMovie ? 'Thay Poster (để trống nếu không đổi)' : 'Poster *'}</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    required={!editingMovie}
+                  />
+                  {posterPreview && (
+                    <img src={posterPreview} alt="Preview" className="movie-poster-preview" />
+                  )}
+                </div>
               </div>
               <div className="movie-form-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>

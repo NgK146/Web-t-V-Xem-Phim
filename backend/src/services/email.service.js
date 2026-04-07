@@ -12,14 +12,54 @@ const templates = {
     <h2>Xin chào ${name}!</h2>
     <p>Chào mừng bạn đến với CinemaHub. Tận hưởng trải nghiệm xem phim!</p>
   `,
-  bookingConfirm: ({ booking, user }) => `
-    <h2>Xác nhận đặt vé thành công</h2>
-    <p>Xin chào ${user.name},</p>
-    <p>Mã đặt vé của bạn: <strong>${booking.bookingCode}</strong></p>
-    <p>Số ghế: ${booking.tickets.map(t => t.seatLabel).join(', ')}</p>
-    <p>Tổng tiền: ${booking.finalPrice.toLocaleString('vi-VN')}đ</p>
-    <img src="${booking.qrCode}" alt="QR Code" style="width:200px"/>
-  `,
+  bookingConfirm: ({ booking, user }) => {
+    const seats = booking.tickets.map(t => t.seatLabel).join(', ');
+    const showDate = booking.showstartTime
+      ? new Date(booking.showstartTime).toLocaleString('vi-VN', { dateStyle: 'full', timeStyle: 'short' })
+      : '';
+    return `
+    <div style="margin:0;padding:0;background:#0a0a0f;font-family:'Segoe UI',Arial,sans-serif;">
+      <div style="max-width:560px;margin:0 auto;background:#111118;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">
+        
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#e50914,#b10710);padding:32px 40px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#fff;letter-spacing:2px;">CINEBOOKING<span style="opacity:0.7">*</span></div>
+          <div style="color:rgba(255,255,255,0.7);margin-top:6px;font-size:13px;letter-spacing:1px;">VÉ XEM PHIM ĐIỆN TỬ</div>
+        </div>
+
+        <!-- Content -->
+        <div style="padding:36px 40px;">
+          <p style="color:#aaa;font-size:15px;margin:0 0 24px;">Xin chào <strong style="color:#fff">${user.name}</strong>,<br>Đặt vé của bạn đã được xác nhận thành công! 🎉</p>
+
+          <!-- Info Grid -->
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px;margin-bottom:24px;">
+            <table style="width:100%;border-collapse:collapse;">
+              <tr><td style="color:#666;font-size:12px;padding:6px 0;text-transform:uppercase;letter-spacing:1px;width:40%">Mã Vé</td><td style="color:#e50914;font-weight:800;font-size:16px;font-family:monospace;letter-spacing:2px;">${booking.bookingCode}</td></tr>
+              ${booking.movieTitle ? `<tr><td style="color:#666;font-size:12px;padding:6px 0;text-transform:uppercase;letter-spacing:1px;">Phim</td><td style="color:#fff;font-weight:600;">${booking.movieTitle}</td></tr>` : ''}
+              ${booking.cinemaName ? `<tr><td style="color:#666;font-size:12px;padding:6px 0;text-transform:uppercase;letter-spacing:1px;">Rạp</td><td style="color:#fff;">${booking.cinemaName}</td></tr>` : ''}
+              ${booking.roomName ? `<tr><td style="color:#666;font-size:12px;padding:6px 0;text-transform:uppercase;letter-spacing:1px;">Phòng</td><td style="color:#fff;">${booking.roomName}</td></tr>` : ''}
+              ${showDate ? `<tr><td style="color:#666;font-size:12px;padding:6px 0;text-transform:uppercase;letter-spacing:1px;">Suất chiếu</td><td style="color:#fff;">${showDate}</td></tr>` : ''}
+              <tr><td style="color:#666;font-size:12px;padding:6px 0;text-transform:uppercase;letter-spacing:1px;">Ghế</td><td style="color:#fff;font-weight:600;">${seats}</td></tr>
+              ${booking.totalPrice !== booking.finalPrice ? `<tr><td style="color:#666;font-size:12px;padding:6px 0;text-transform:uppercase;letter-spacing:1px;">Giá gốc</td><td style="color:#aaa;text-decoration:line-through;">${booking.totalPrice.toLocaleString('vi-VN')}đ</td></tr>` : ''}
+              <tr><td style="color:#666;font-size:12px;padding:6px 0;text-transform:uppercase;letter-spacing:1px;">Tổng Tiền</td><td style="color:#4ade80;font-weight:800;font-size:18px;">${booking.finalPrice.toLocaleString('vi-VN')}đ</td></tr>
+            </table>
+          </div>
+
+          <!-- QR Code -->
+          ${booking.qrCode ? `
+          <div style="text-align:center;padding:28px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.15);border-radius:12px;">
+            <div style="color:#888;font-size:12px;letter-spacing:2px;margin-bottom:16px;text-transform:uppercase;">Xuất Trình QR Tại Rạp</div>
+            <img src="${booking.qrCode}" alt="QR Code" style="width:180px;height:180px;border-radius:8px;background:#fff;padding:8px;"/>
+            <div style="color:#555;font-size:11px;margin-top:12px;">Quét mã này tại quầy vé để nhận vé</div>
+          </div>
+          ` : ''}
+
+          <p style="color:#555;font-size:12px;text-align:center;margin-top:24px;">Email này được gửi tự động từ CinemaHub. Vui lòng không trả lời.</p>
+        </div>
+
+      </div>
+    </div>`;
+  },
   resetPassword: ({ name, resetUrl }) => `
     <h2>Đặt lại mật khẩu</h2>
     <p>Xin chào ${name},</p>

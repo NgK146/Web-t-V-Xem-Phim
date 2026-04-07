@@ -17,12 +17,13 @@ import reviewRoutes from './routes/review.routes.js';
 import discountRoutes from './routes/discount.routes.js';
 import reportRoutes from './routes/report.routes.js';
 import { initSeatSocket } from './sockets/seat.socket.js';
+import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
 const httpServer = createServer(app);
 
 export const io = new Server(httpServer, {
-  cors: { origin: process.env.CLIENT_URL, methods: ['GET', 'POST'] },
+  cors: { origin: process.env.CLIENT_URL, methods: ['GET', 'POST'], credentials: true },
 });
 
 // Middlewares
@@ -34,7 +35,6 @@ app.use(morgan('dev'));
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static('public/uploads'));
 
 // Routes
 app.use('/api/auth',      authRoutes);
@@ -52,16 +52,7 @@ app.use('/api/reports',   reportRoutes);
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 
 // Global error handler
-app.use((err, req, res, _next) => {
-  const statusCode = err.statusCode || 500;
-  res.status(statusCode).json({
-    success: false,
-    message: err.message || "Internal Server Error",
-    stack: err.stack,
-    errors: err.errors || [],
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-  });
-});
+app.use(errorHandler);
 
 initSeatSocket(io);
 

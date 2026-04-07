@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import api from '../api/axios';
 
 export const useAuthStore = create(
@@ -10,18 +10,22 @@ export const useAuthStore = create(
 
       /** @param {{ user: object, accessToken: string, refreshToken: string }} data */
       setAuth: (data) => {
-        localStorage.setItem('accessToken',  data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
+        sessionStorage.setItem('accessToken',  data.accessToken);
+        sessionStorage.setItem('refreshToken', data.refreshToken);
         set({ user: data.user, token: data.accessToken });
       },
 
       logout: async () => {
         await api.post('/auth/logout').catch(() => {});
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('refreshToken');
         set({ user: null, token: null });
       },
     }),
-    { name: 'auth-storage', partialize: (s) => ({ user: s.user }) }
+    { 
+      name: 'auth-storage', 
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (s) => ({ user: s.user, token: s.token }) 
+    }
   )
 );

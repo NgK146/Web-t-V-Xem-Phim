@@ -4,6 +4,10 @@ import { toast } from 'react-toastify';
 import { useAuthStore } from '../store/authStore';
 import api from '../api/axios';
 import AdminMovies from '../components/AdminMovies';
+import AdminCinemas from '../components/AdminCinemas';
+import AdminShowtimes from '../components/AdminShowtimes';
+import AdminDiscounts from '../components/AdminDiscounts';
+import AdminReports from '../components/AdminReports';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuthStore();
@@ -80,7 +84,7 @@ const AdminDashboard = () => {
       <aside className="admin-sidebar">
         <div className="admin-logo">
           <span className="admin-logo-icon">🎬</span>
-          <span>CinemaHub</span>
+          <span>CineBooking</span>
         </div>
         <div className="admin-admin-badge">
           <div className="admin-avatar">{user?.name?.charAt(0).toUpperCase()}</div>
@@ -103,10 +107,34 @@ const AdminDashboard = () => {
             <span>🎬</span> Quản Lý Phim
           </button>
           <button
+            className={`admin-nav-item ${activeTab === 'cinemas' ? 'active' : ''}`}
+            onClick={() => setActiveTab('cinemas')}
+          >
+            <span>🏢</span> Rạp & Phòng
+          </button>
+          <button
+            className={`admin-nav-item ${activeTab === 'showtimes' ? 'active' : ''}`}
+            onClick={() => setActiveTab('showtimes')}
+          >
+            <span>⏰</span> Suất Chiếu
+          </button>
+          <button
+            className={`admin-nav-item ${activeTab === 'discounts' ? 'active' : ''}`}
+            onClick={() => setActiveTab('discounts')}
+          >
+            <span>🎟️</span> Mã Giảm Giá
+          </button>
+          <button
+            className={`admin-nav-item ${activeTab === 'reports' ? 'active' : ''}`}
+            onClick={() => setActiveTab('reports')}
+          >
+            <span>📊</span> Báo Cáo
+          </button>
+          <button
             className={`admin-nav-item ${activeTab === 'stats' ? 'active' : ''}`}
             onClick={() => setActiveTab('stats')}
           >
-            <span>📊</span> Thống Kê
+            <span>⚙️</span> Hệ Thống
           </button>
         </nav>
         <div className="admin-sidebar-footer">
@@ -248,6 +276,10 @@ const AdminDashboard = () => {
         )}
 
         {activeTab === 'movies' && <AdminMovies />}
+        {activeTab === 'cinemas' && <AdminCinemas />}
+        {activeTab === 'showtimes' && <AdminShowtimes />}
+        {activeTab === 'discounts' && <AdminDiscounts />}
+        {activeTab === 'reports' && <AdminReports />}
 
         {activeTab === 'stats' && (
           <div>

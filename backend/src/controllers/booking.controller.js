@@ -7,6 +7,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { generateQRCode } from '../services/qr.service.js';
 import { sendEmail } from '../services/email.service.js';
 import { generateBookingCode } from '../utils/helpers.js';
+import { buildPagination } from '../utils/pagination.js';
 import { io } from '../app.js';
 
 /**
@@ -15,15 +16,11 @@ import { io } from '../app.js';
  * @access Private
  */
 export const createBooking = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { showtimeId, seatIds, discountCode } = req.body;
 
     const showtime = await Showtime.findById(showtimeId)
-      .populate('movie room')
-      .session(session);
+      .populate('movie room');
     if (!showtime) throw new ApiError(404, 'Suất chiếu không tồn tại');
     if (showtime.status !== 'scheduled') {
       throw new ApiError(400, 'Suất chiếu này không còn khả dụng');
@@ -40,11 +37,21 @@ export const createBooking = async (req, res, next) => {
       if (seatIndex === -1) throw new ApiError(400, 'Ghế không tồn tại');
 
       const seat = showtime.seats[seatIndex];
-      if (seat.status !== 'available' && !(
-        seat.status === 'locked' &&
-        seat.lockedBy?.toString() === req.user._id.toString()
-      )) {
-        throw new ApiError(400, `Ghế đã được đặt hoặc đang bị giữ`);
+      const now = new Date();
+      if (seat.status === 'booked') {
+        throw new ApiError(400, `Ghế đã được đặt`);
+      }
+
+      if (seat.status === 'locked') {
+        const isExpired = seat.lockedAt && now > seat.lockedAt;
+        const isMyLock = seat.lockedBy?.toString() === req.user._id.toString();
+
+        if (!isExpired && !isMyLock) {
+          throw new ApiError(400, `Ghế đang được người khác giữ`);
+        }
+        if (isExpired && isMyLock) {
+          throw new ApiError(400, `Thời gian giữ ghế đã hết hạn, vui lòng chọn lại`);
+        }
       }
 
       // Tìm thông tin ghế từ room
@@ -70,7 +77,7 @@ export const createBooking = async (req, res, next) => {
         isActive: true,
         startDate: { $lte: new Date() },
         endDate:   { $gte: new Date() },
-      }).session(session);
+      });
 
       if (!discountDoc) throw new ApiError(400, 'Mã giảm giá không hợp lệ');
       if (discountDoc.usageLimit && discountDoc.usedCount >= discountDoc.usageLimit) {
@@ -86,8 +93,11 @@ export const createBooking = async (req, res, next) => {
 
       finalPrice = Math.max(0, totalPrice - discountAmount);
       discountDoc.usedCount += 1;
-      await discountDoc.save({ session });
+      await discountDoc.save();
     }
+
+    // Lưu trạng thái ghế TRƯỚC khi tạo booking để đảm bảo tính nhất quán
+    await showtime.save();
 
     const bookingCode = generateBookingCode();
     const booking = await Booking.create([{
@@ -97,12 +107,14 @@ export const createBooking = async (req, res, next) => {
       totalPrice,
       discount: discountDoc?._id,
       finalPrice,
-      status: 'pending',
+      status: 'confirmed',  // Tự xác nhận vì không có cổng thanh toán thực
       bookingCode,
-    }], { session });
-
-    await showtime.save({ session });
-    await session.commitTransaction();
+      // Store snapshot for long-term history reliability
+      movieTitle:    showtime.movieTitle || showtime.movie?.title,
+      cinemaName:    showtime.cinemaName || showtime.room?.cinema?.name,
+      roomName:      showtime.roomName   || showtime.room?.name,
+      showstartTime: showtime.startTime,
+    }]);
 
     // Tạo QR code
     const qrCode = await generateQRCode(booking[0].bookingCode);
@@ -130,10 +142,7 @@ export const createBooking = async (req, res, next) => {
       new ApiResponse(201, booking[0], 'Đặt vé thành công')
     );
   } catch (err) {
-    await session.abortTransaction();
     next(err);
-  } finally {
-    session.endSession();
   }
 };
 
@@ -155,9 +164,13 @@ export const lockSeats = async (req, res, next) => {
       if (idx === -1) throw new ApiError(400, 'Ghế không tồn tại');
 
       const seat = showtime.seats[idx];
+      const now = new Date();
       if (seat.status === 'booked') throw new ApiError(400, 'Ghế đã được đặt');
-      if (seat.status === 'locked' && seat.lockedBy?.toString() !== req.user._id.toString()) {
-        throw new ApiError(400, 'Ghế đang được người khác giữ');
+      if (seat.status === 'locked') {
+        const isExpired = seat.lockedAt && now > seat.lockedAt;
+        if (!isExpired && seat.lockedBy?.toString() !== req.user._id.toString()) {
+          throw new ApiError(400, 'Ghế đang được người khác giữ');
+        }
       }
 
       showtime.seats[idx].status   = 'locked';
@@ -173,7 +186,80 @@ export const lockSeats = async (req, res, next) => {
       seats: seatIds.map(id => ({ id, status: 'locked' })),
     });
 
+    // Tự động nhả ghế sau 5 phút nếu chưa thanh toán
+    setTimeout(async () => {
+      try {
+        const currentShowtime = await Showtime.findById(showtimeId);
+        if (!currentShowtime) return;
+
+        let changed = false;
+        const unlockedSeats = [];
+        
+        for (const seatId of seatIds) {
+          const idx = currentShowtime.seats.findIndex(s => s.seat.toString() === seatId);
+          if (idx !== -1) {
+            const seat = currentShowtime.seats[idx];
+            // Nếu vẫn là locked và đã quá hạn
+            if (seat.status === 'locked' && seat.lockedAt && new Date() >= new Date(seat.lockedAt)) {
+              currentShowtime.seats[idx].status = 'available';
+              currentShowtime.seats[idx].lockedBy = undefined;
+              currentShowtime.seats[idx].lockedAt = undefined;
+              unlockedSeats.push(seatId);
+              changed = true;
+            }
+          }
+        }
+
+        if (changed) {
+          await currentShowtime.save();
+          io.to(showtimeId).emit('seats_updated', {
+            showtimeId,
+            seats: unlockedSeats.map(id => ({ id, status: 'available' })),
+          });
+        }
+      } catch (error) {
+        console.error('Error auto-unlocking seats:', error);
+      }
+    }, 5 * 60 * 1000 + 2000); // 5 phút + 2 giây để chắc chắn hết hạn
+
     res.json(new ApiResponse(200, { lockedUntil: lockExpiry }, 'Ghế đã được giữ trong 5 phút'));
+  } catch (err) { next(err); }
+};
+
+/**
+ * @desc  Nhả khóa các ghế (khi user bỏ chọn hoặc rời trang)
+ * @route POST /api/bookings/unlock-seats
+ * @access Private
+ */
+export const unlockSeats = async (req, res, next) => {
+  try {
+    const { showtimeId, seatIds } = req.body;
+    const showtime = await Showtime.findById(showtimeId);
+    if (!showtime) return res.json(new ApiResponse(200, null, 'OK'));
+
+    let changed = false;
+    for (const seatId of seatIds) {
+      const idx = showtime.seats.findIndex(s => s.seat.toString() === seatId);
+      if (idx === -1) continue;
+      const seat = showtime.seats[idx];
+      // Chỉ nhả nếu chính user này đang giữ
+      if (seat.status === 'locked' && seat.lockedBy?.toString() === req.user._id.toString()) {
+        showtime.seats[idx].status   = 'available';
+        showtime.seats[idx].lockedBy = undefined;
+        showtime.seats[idx].lockedAt = undefined;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await showtime.save();
+      io.to(showtimeId).emit('seats_updated', {
+        showtimeId,
+        seats: seatIds.map(id => ({ id, status: 'available' })),
+      });
+    }
+
+    res.json(new ApiResponse(200, null, 'Ghế đã được nhả'));
   } catch (err) { next(err); }
 };
 
@@ -236,7 +322,13 @@ export const getMyBookings = async (req, res, next) => {
       await Booking.countDocuments({ user: req.user._id }));
 
     const bookings = await Booking.find({ user: req.user._id })
-      .populate({ path: 'showtime', populate: { path: 'movie room' } })
+      .populate({
+        path: 'showtime',
+        populate: [
+          { path: 'movie', select: 'title poster genre duration' },
+          { path: 'room', populate: { path: 'cinema', select: 'name address' } }
+        ]
+      })
       .sort('-createdAt')
       .skip(skip)
       .limit(Number(limit));

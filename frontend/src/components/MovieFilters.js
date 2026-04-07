@@ -19,6 +19,12 @@ const MovieFilters = ({ filters, onFilterChange }) => {
     <div className="movie-filters-cgv">
       <div className="movie-tabs">
         <button 
+          className={`tab-btn ${filters.status === 'today' ? 'active' : ''}`}
+          onClick={() => handleStatusChange('today')}
+        >
+          Phim Chiếu Hôm Nay
+        </button>
+        <button 
           className={`tab-btn ${filters.status === 'now_showing' ? 'active' : ''}`}
           onClick={() => handleStatusChange('now_showing')}
         >

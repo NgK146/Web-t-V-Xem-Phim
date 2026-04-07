@@ -1,399 +1,571 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { showtimesApi } from '../api/showtimes.api';
 import { bookingsApi } from '../api/bookings.api';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-toastify';
 import { io } from 'socket.io-client';
+import { discountsApi } from '../api/discounts.api';
+
+const LOCK_SECONDS = 5 * 60;
 
 const SeatSelection = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
-  const [showtime, setShowtime] = useState(null);
-  const [roomSeats, setRoomSeats] = useState([]);
-  const [seatStatuses, setSeatStatuses] = useState({});
+
+  const [showtime, setShowtime]           = useState(null);
+  const [roomSeats, setRoomSeats]         = useState([]);
+  const [seatStatuses, setSeatStatuses]   = useState({});
   const [selectedSeatIds, setSelectedSeatIds] = useState([]);
-  const [socket, setSocket] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]             = useState(true);
+  const [booking, setBooking]             = useState(false);
+
+  const [timeLeft, setTimeLeft] = useState(null);
+  const timerRef                = useRef(null);
+  const lockedSeatsRef          = useRef([]);
+
+  // Discount UI State
+  const [discountCodeInput, setDiscountCodeInput] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState(null);
+  const [loadingDiscount, setLoadingDiscount] = useState(false);
+
+  // Reset discount if seats change
+  useEffect(() => {
+    setAppliedDiscount(null);
+  }, [selectedSeatIds]);
+
+  // ─── Timer ───────────────────────────────────────────────
+  const startTimer = useCallback((initialSeconds = LOCK_SECONDS) => {
+    clearInterval(timerRef.current);
+    setTimeLeft(initialSeconds);
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => (prev <= 1 ? (clearInterval(timerRef.current), 0) : prev - 1));
+    }, 1000);
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    clearInterval(timerRef.current);
+    setTimeLeft(null);
+  }, []);
 
   useEffect(() => {
-    // connect to socket socket.io server
-    const newSocket = io('http://localhost:5001', { withCredentials: true });
-    setSocket(newSocket);
+    if (timeLeft !== 0) return;
+    if (!lockedSeatsRef.current.length) return;
+    toast.warning('⏱️ Hết thời gian giữ ghế! Vui lòng chọn lại.', { autoClose: 4000 });
+    bookingsApi.unlockSeats({ showtimeId: id, seatIds: lockedSeatsRef.current }).catch(() => {});
+    setSelectedSeatIds([]);
+    lockedSeatsRef.current = [];
+    setTimeLeft(null);
+  }, [timeLeft, id]);
 
-    newSocket.emit('join_showtime', id);
-
-    newSocket.on('seat_status', (data) => {
-       const statuses = {};
-       data.forEach(s => {
-         statuses[s.id] = s.status;
-       });
-       setSeatStatuses(statuses);
-    });
-
-    newSocket.on('seats_updated', (data) => {
-       setSeatStatuses(prev => {
-         const updated = { ...prev };
-         data.seats.forEach(s => {
-           updated[s.id] = s.status;
-         });
-         return updated;
-       });
-    });
-
-    return () => {
-      newSocket.emit('leave_showtime', id);
-      newSocket.disconnect();
-    };
+  useEffect(() => () => {
+    clearInterval(timerRef.current);
+    if (lockedSeatsRef.current.length)
+      bookingsApi.unlockSeats({ showtimeId: id, seatIds: lockedSeatsRef.current }).catch(() => {});
   }, [id]);
 
+  // ─── Socket ──────────────────────────────────────────────
+  useEffect(() => {
+    const sock = io('http://localhost:5001', { withCredentials: true });
+    sock.emit('join_showtime', id);
+    sock.on('seat_status', data => {
+      const s = {};
+      data.forEach(x => { s[x.id] = x.status; });
+      setSeatStatuses(s);
+    });
+    sock.on('seats_updated', data => {
+      setSeatStatuses(prev => {
+        const u = { ...prev };
+        data.seats.forEach(x => { u[x.id] = x.status; });
+        return u;
+      });
+    });
+    return () => { sock.emit('leave_showtime', id); sock.disconnect(); };
+  }, [id]);
+
+  // ─── Fetch ───────────────────────────────────────────────
   const fetchShowtime = useCallback(async () => {
     try {
       const res = await showtimesApi.getDetails(id);
-      setShowtime(res.data.data);
-      if (res.data.data.room && res.data.data.room.seats) {
-        setRoomSeats(res.data.data.room.seats);
+      const data = res.data.data;
+      setShowtime(data);
+      setRoomSeats(data.room?.seats || []);
+
+      // Restore locked seats for current user upon reload
+      if (user) {
+        let minTimeLeft = LOCK_SECONDS; 
+        const myLockedSeats = [];
+        const now = new Date().getTime();
+
+        data.seats?.forEach(s => {
+          const uId = user.id || user._id;
+          if (s.status === 'locked' && s.lockedBy === uId && s.lockedAt) {
+            const expTime = new Date(s.lockedAt).getTime();
+            if (expTime > now) {
+              myLockedSeats.push(s.seat.toString());
+              const remainingSec = Math.floor((expTime - now) / 1000);
+              minTimeLeft = Math.min(minTimeLeft, remainingSec);
+            }
+          }
+        });
+
+        if (myLockedSeats.length > 0 && lockedSeatsRef.current.length === 0) {
+          lockedSeatsRef.current = myLockedSeats;
+          setSelectedSeatIds(myLockedSeats);
+          startTimer(minTimeLeft);
+        }
       }
-    } catch (err) {
-      toast.error('Không thể tải suất chiếu');
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
 
-  useEffect(() => {
-    fetchShowtime();
-  }, [fetchShowtime]);
+    } catch { toast.error('Không thể tải suất chiếu'); }
+    finally { setLoading(false); }
+  }, [id, user, startTimer]);
 
-  const toggleSeat = (seatId) => {
+  useEffect(() => { fetchShowtime(); }, [fetchShowtime]);
+
+  // ─── Toggle seat ─────────────────────────────────────────
+  const toggleSeat = async (seat) => {
+    if (!user) { navigate('/login'); return; }
+    const seatId = seat._id;
     const status = seatStatuses[seatId] || 'available';
-    if (status === 'booked' || status === 'locked') {
-      return; // Cannot select
-    }
+    const isLockedByMe = lockedSeatsRef.current.includes(seatId);
+    if (status === 'booked') return;
+    if (status === 'locked' && !isLockedByMe) return;
 
-    setSelectedSeatIds(prev => 
-      prev.includes(seatId) 
-        ? prev.filter(s => s !== seatId)
-        : [...prev, seatId]
-    );
+    if (selectedSeatIds.includes(seatId)) {
+      // Deselect → unlock
+      try {
+        await bookingsApi.unlockSeats({ showtimeId: id, seatIds: [seatId] });
+        lockedSeatsRef.current = lockedSeatsRef.current.filter(s => s !== seatId);
+        setSelectedSeatIds(prev => {
+          const next = prev.filter(s => s !== seatId);
+          if (!next.length) stopTimer();
+          return next;
+        });
+      } catch { toast.error('Không thể bỏ chọn ghế'); }
+    } else {
+      // Select → lock
+      try {
+        await bookingsApi.lockSeats({ showtimeId: id, seatIds: [seatId] });
+        lockedSeatsRef.current = [...lockedSeatsRef.current, seatId];
+        setSelectedSeatIds(prev => {
+          if (!prev.length) startTimer();
+          return [...prev, seatId];
+        });
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Ghế không thể chọn');
+        fetchShowtime();
+      }
+    }
+  };
+
+  // ─── Booking & Discount ─────────────────────────────────────────────
+  const handleApplyDiscount = async () => {
+    if (!discountCodeInput.trim()) return;
+    if (selectedSeatIds.length === 0) {
+      toast.warning('Vui lòng chọn ghế trước khi áp dụng mã giảm giá');
+      return;
+    }
+    setLoadingDiscount(true);
+    try {
+      // Calculate current totalPrice to validate
+      const currentTotal = selectedSeatIds.reduce((sum, sid) => {
+        const sw = showtime.seats?.find(s => s.seat?.toString() === sid);
+        return sum + (sw?.price || showtime.basePrice || 0);
+      }, 0);
+      
+      const res = await discountsApi.validate({ code: discountCodeInput.trim(), amount: currentTotal });
+      setAppliedDiscount({
+        code: res.data.data.code,
+        discountAmount: res.data.data.discountAmount
+      });
+      toast.success('Áp dụng mã giảm giá thành công!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể áp dụng mã');
+      setAppliedDiscount(null);
+    } finally {
+      setLoadingDiscount(false);
+    }
   };
 
   const handleBooking = async () => {
-    if (!user) {
-      toast.warning('Vui lòng đăng nhập để đặt vé');
-      navigate('/login');
-      return;
-    }
-    
-    if (selectedSeatIds.length === 0) {
-      toast.warning('Vui lòng chọn ít nhất 1 ghế');
-      return;
-    }
-    
+    if (!selectedSeatIds.length) { toast.warning('Vui lòng chọn ít nhất 1 ghế'); return; }
+    setBooking(true);
     try {
-      // First lock the seats
-      await bookingsApi.lockSeats({ showtimeId: id, seatIds: selectedSeatIds });
-      
-      // Then create the booking (simplified for MVP: pay immediately)
-      await bookingsApi.create({ showtimeId: id, seatIds: selectedSeatIds });
-      toast.success('Đặt vé thành công!');
+      await bookingsApi.create({ 
+        showtimeId: id, 
+        seatIds: selectedSeatIds,
+        discountCode: appliedDiscount?.code 
+      });
+      lockedSeatsRef.current = [];
+      stopTimer();
+      toast.success('🎉 Đặt vé thành công!');
       navigate('/');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi đặt vé');
-      fetchShowtime(); // refresh if conflicting state
-    }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi đặt vé');
+      fetchShowtime();
+    } finally { setBooking(false); }
   };
 
+  // ─── Loading / empty ─────────────────────────────────────
   if (loading) return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0a0a0a' }}>
-      <div style={{ color: '#E71A0F', fontSize: '24px', fontWeight: 'bold' }}>Đang tải sơ đồ ghế...</div>
+    <div className="ss-center-screen">
+      <div className="ss-loading-dot" /><div className="ss-loading-dot" /><div className="ss-loading-dot" />
     </div>
   );
   if (!showtime) return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0a0a0a' }}>
-      <div style={{ color: 'white', fontSize: '20px' }}>Không có dữ liệu suất chiếu.</div>
-    </div>
+    <div className="ss-center-screen" style={{ color: '#888', fontSize: 18 }}>Không tìm thấy suất chiếu.</div>
   );
 
-  // Group seats by row
+  // ─── Seat grid data ──────────────────────────────────────
   const rows = {};
-  roomSeats.forEach(seat => {
-    if (!rows[seat.row]) rows[seat.row] = [];
-    rows[seat.row].push(seat);
-  });
+  roomSeats.forEach(s => { if (!rows[s.row]) rows[s.row] = []; rows[s.row].push(s); });
   const rowNames = Object.keys(rows).sort();
 
-  const totalPrice = selectedSeatIds.length * showtime.basePrice;
+  const totalPrice = selectedSeatIds.reduce((sum, sid) => {
+    const sw = showtime.seats?.find(s => s.seat?.toString() === sid);
+    return sum + (sw?.price || showtime.basePrice || 0);
+  }, 0);
+
+  const mm = timeLeft !== null ? Math.floor(timeLeft / 60) : 0;
+  const ss = timeLeft !== null ? timeLeft % 60 : 0;
+  const countdown = timeLeft !== null ? `${mm}:${ss.toString().padStart(2, '0')}` : null;
+  const urgent = timeLeft !== null && timeLeft <= 60;
+
+  const selectedLabels = selectedSeatIds.map(sid => {
+    const s = roomSeats.find(x => x._id === sid);
+    return s ? `${s.row}${s.number}` : '';
+  }).join(', ');
+
+  const finalPrice = appliedDiscount ? Math.max(0, totalPrice - appliedDiscount.discountAmount) : totalPrice;
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: 'radial-gradient(circle at top, #1a1a2e 0%, #0a0a0a 100%)', 
-      color: 'white', 
-      padding: '40px 20px',
-      fontFamily: "'Inter', sans-serif"
-    }}>
-      {/* Back Button */}
-      <button 
-        onClick={() => navigate(-1)}
-        style={{
-          position: 'absolute',
-          top: '20px',
-          left: '20px',
-          zIndex: 10,
-          background: 'rgba(255,255,255,0.05)',
-          color: 'white',
-          border: '1px solid rgba(255,255,255,0.1)',
-          padding: '10px 20px',
-          borderRadius: '30px',
-          cursor: 'pointer',
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          transition: 'all 0.3s'
-        }}
-        onMouseOver={(e) => { e.currentTarget.style.background = '#E71A0F'; e.currentTarget.style.borderColor = '#E71A0F'; }}
-        onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-      >
-        <span>←</span> Quay lại Phim
-      </button>
+    <div className="ss-root">
 
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-        
-        {/* Header Info */}
-        <div style={{ 
-          textAlign: 'center', 
-          marginBottom: '40px',
-          animation: 'fadeIn 0.5s ease-out'
-        }}>
-          <h2 style={{ fontSize: '32px', margin: '0 0 10px 0', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            {showtime.movie?.title}
-          </h2>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', color: '#aaa', fontSize: '16px' }}>
-            <span><strong style={{ color: '#fff' }}>Rạp:</strong> {showtime.room?.cinema?.name}</span>
-            <span>|</span>
-            <span><strong style={{ color: '#fff' }}>Phòng:</strong> {showtime.room?.name}</span>
-            <span>|</span>
-            <span><strong style={{ color: '#fff' }}>Giờ:</strong> {new Date(showtime.startTime).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})} - {new Date(showtime.startTime).toLocaleDateString('vi-VN')}</span>
+      {/* ── TOP HEADER BAR ── */}
+      <header className="ss-header">
+        {/* Left: back button */}
+        <button className="ss-back-btn" onClick={() => navigate(-1)}>
+          <span>←</span> Quay lại
+        </button>
+
+        {/* Center: movie + showtime info */}
+        <div className="ss-header-info">
+          <div className="ss-movie-title">{showtime.movie?.title}</div>
+          <div className="ss-header-meta">
+            <span>🏛️ {showtime.room?.cinema?.name || showtime.cinemaName}</span>
+            <span className="ss-meta-sep">·</span>
+            <span>🚪 {showtime.room?.name || showtime.roomName}</span>
+            <span className="ss-meta-sep">·</span>
+            <span>🕐 {new Date(showtime.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} &nbsp;
+              {new Date(showtime.startTime).toLocaleDateString('vi-VN')}</span>
           </div>
         </div>
 
-        {/* Screen Visual */}
-        <div style={{
-          position: 'relative',
-          margin: '0 auto 60px auto',
-          width: '80%',
-          height: '60px',
-          borderTop: '4px solid rgba(255,255,255,0.7)',
-          borderRadius: '50% 50% 0 0 / 100% 100% 0 0',
-          boxShadow: '0 -20px 40px -10px rgba(255,255,255,0.15)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'flex-start',
-          paddingTop: '15px'
-        }}>
-          <span style={{ letterSpacing: '8px', color: 'rgba(255,255,255,0.4)', fontSize: '14px', fontWeight: 'bold' }}>MÀN HÌNH</span>
-          {/* Subtle screen glow */}
-          <div style={{
-            position: 'absolute',
-            top: 0, left: '10%', right: '10%', height: '100px',
-            background: 'linear-gradient(to bottom, rgba(255,255,255,0.05) 0%, transparent 100%)',
-            pointerEvents: 'none',
-            borderRadius: '50% 50% 0 0 / 100% 100% 0 0',
-          }}></div>
+        {/* Right: countdown pill */}
+        <div className="ss-timer-wrap">
+          {countdown ? (
+            <div className={`ss-timer-pill ${urgent ? 'urgent' : ''}`}>
+              <span className="ss-timer-icon">{urgent ? '⚠️' : '⏱️'}</span>
+              <span className="ss-timer-label">Còn lại</span>
+              <span className="ss-timer-value">{countdown}</span>
+            </div>
+          ) : (
+            <div className="ss-timer-pill inactive">
+              <span className="ss-timer-icon">⏱️</span>
+              <span className="ss-timer-label">Chọn ghế để giữ 5 phút</span>
+            </div>
+          )}
         </div>
-        
+      </header>
+
+      {/* ── MAIN CONTENT ── */}
+      <main className="ss-main">
+
+        {/* Screen */}
+        <div className="ss-screen-wrap">
+          <div className="ss-screen" />
+          <div className="ss-screen-label">MÀN HÌNH</div>
+        </div>
+
         {/* Seat Grid */}
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '12px', 
-          alignItems: 'center',
-          perspective: '1000px'
-        }}>
+        <div className="ss-grid">
           {rowNames.map(row => (
-            <div key={row} style={{ display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center' }}>
-              <div style={{ width: '30px', fontWeight: 'bold', color: '#666', fontSize: '14px', textAlign: 'right', paddingRight: '10px' }}>
-                {row}
-              </div>
-              
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {rows[row].sort((a,b) => a.number - b.number).map((seat, index) => {
-                  const status = seatStatuses[seat._id] || 'available';
+            <div key={row} className="ss-row">
+              <div className="ss-row-label">{row}</div>
+              <div className="ss-row-seats">
+                {rows[row].sort((a, b) => a.number - b.number).map((seat, idx) => {
+                  const status     = seatStatuses[seat._id] || 'available';
                   const isSelected = selectedSeatIds.includes(seat._id);
-                  
-                  // Gap in the middle for aisles if needed (pseudo logic)
-                  const isAisle = index === Math.floor(rows[row].length / 2) - 1;
+                  const isMine     = lockedSeatsRef.current.includes(seat._id);
+                  const isBooked   = status === 'booked';
+                  const isLocked   = status === 'locked' && !isMine;
+                  const isAisle    = idx === Math.floor(rows[row].length / 2) - 1;
 
-                  let bgColor = '#2a2a35'; // default available
-                  let borderColor = '#3a3a45';
-                  let shadow = '0 4px 6px rgba(0,0,0,0.3)';
-                  let color = '#fff';
-
-                  if (status === 'booked' || status === 'locked') {
-                    bgColor = '#111';
-                    borderColor = '#222';
-                    color = '#444';
-                    shadow = 'none';
-                  } else if (isSelected) {
-                    bgColor = '#E71A0F';
-                    borderColor = '#ff4d4d';
-                    shadow = '0 0 15px rgba(231,26,15,0.6), 0 4px 10px rgba(0,0,0,0.4)';
-                  } else if (seat.type === 'vip') {
-                    bgColor = '#503520'; 
-                    borderColor = '#FFD700'; // Gold border for VIP
-                  } else if (seat.type === 'couple') {
-                    bgColor = '#6d28d9';
-                    borderColor = '#8b5cf6';
-                  }
+                  let cls = 'ss-seat';
+                  if (isBooked)      cls += ' booked';
+                  else if (isLocked) cls += ' locked-other';
+                  else if (isSelected) cls += ' selected';
+                  else if (seat.type === 'vip')    cls += ' vip';
+                  else if (seat.type === 'couple') cls += ' couple';
 
                   return (
-                    <div 
+                    <div
                       key={seat._id}
-                      onClick={() => toggleSeat(seat._id)}
-                      style={{
-                        position: 'relative',
-                        width: seat.type === 'couple' ? '80px' : '36px',
-                        height: '36px',
-                        backgroundColor: bgColor,
-                        borderTop: `3px solid ${borderColor}`,
-                        borderRadius: '6px 6px 4px 4px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: (status === 'booked' || status === 'locked') ? 'not-allowed' : 'pointer',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        color: color,
-                        marginRight: isAisle ? '30px' : '0',
-                        boxShadow: shadow,
-                        transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                        transform: isSelected ? 'scale(1.1) translateY(-2px)' : 'scale(1)',
-                        userSelect: 'none'
-                      }}
-                      title={`Ghế ${row}${seat.number} - ${seat.type.toUpperCase()}`}
-                      onMouseOver={(e) => {
-                        if (status === 'available' && !isSelected) {
-                          e.currentTarget.style.transform = 'scale(1.1) translateY(-2px)';
-                          e.currentTarget.style.boxShadow = '0 8px 15px rgba(255,255,255,0.1)';
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        if (status === 'available' && !isSelected) {
-                          e.currentTarget.style.transform = 'scale(1)';
-                          e.currentTarget.style.boxShadow = shadow;
-                        }
-                      }}
+                      className={cls + (seat.type === 'couple' ? ' couple-wide' : '') + (isAisle ? ' aisle-gap' : '')}
+                      onClick={() => !(isBooked || isLocked) && toggleSeat(seat)}
+                      title={`Ghế ${row}${seat.number} — ${seat.type}${isLocked ? ' (đang được giữ)' : ''}`}
                     >
-                      {/* Little seat armrests effect */}
-                      <div style={{ position: 'absolute', left: '-2px', top: '10px', bottom: '2px', width: '4px', background: 'rgba(0,0,0,0.3)', borderRadius: '2px' }}></div>
-                      <div style={{ position: 'absolute', right: '-2px', top: '10px', bottom: '2px', width: '4px', background: 'rgba(0,0,0,0.3)', borderRadius: '2px' }}></div>
-                      
-                      {status === 'locked' ? '🔒' : (status === 'booked' ? '×' : seat.number)}
+                      <span className="ss-seat-arm ss-seat-arm-l" />
+                      <span className="ss-seat-arm ss-seat-arm-r" />
+                      {isLocked ? '🔒' : isBooked ? '×' : seat.number}
                     </div>
                   );
                 })}
               </div>
-
-              <div style={{ width: '30px', fontWeight: 'bold', color: '#666', fontSize: '14px', textAlign: 'left', paddingLeft: '10px' }}>
-                {row}
-              </div>
+              <div className="ss-row-label">{row}</div>
             </div>
           ))}
         </div>
 
         {/* Legend */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          gap: '30px', 
-          marginTop: '50px',
-          padding: '20px',
-          background: 'rgba(255,255,255,0.03)',
-          borderRadius: '12px',
-          flexWrap: 'wrap'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-            <div style={{ width: 24, height: 24, backgroundColor: '#2a2a35', borderTop: '3px solid #3a3a45', borderRadius: 4 }}></div> Thường
+        <div className="ss-legend">
+          {[
+            { cls: '',        label: 'Thường' },
+            { cls: 'vip',     label: 'VIP' },
+            { cls: 'couple',  label: 'Couple' },
+            { cls: 'selected',label: 'Đang chọn' },
+            { cls: 'locked-other', label: 'Đang giữ' },
+            { cls: 'booked',  label: 'Đã bán' },
+          ].map((item, i) => (
+            <div key={i} className="ss-legend-item">
+              <div className={`ss-seat ss-legend-swatch ${item.cls}`} style={{ width: item.cls === 'couple' ? 40 : 24, height: 24, fontSize: 0 }} />
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ height: 120 }} />
+      </main>
+
+      {/* ── CHECKOUT BAR ── */}
+      <footer className="ss-checkout">
+        <div className="ss-checkout-left">
+          <div className="ss-checkout-count">
+            {selectedSeatIds.length === 0 ? 'Chưa chọn ghế nào' : `${selectedSeatIds.length} ghế đã chọn`}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-            <div style={{ width: 24, height: 24, backgroundColor: '#503520', borderTop: '3px solid #FFD700', borderRadius: 4 }}></div> VIP
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-            <div style={{ width: 40, height: 24, backgroundColor: '#6d28d9', borderTop: '3px solid #8b5cf6', borderRadius: 4 }}></div> Couple
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px' }}>
-            <div style={{ width: 24, height: 24, backgroundColor: '#E71A0F', borderTop: '3px solid #ff4d4d', borderRadius: 4, boxShadow: '0 0 10px rgba(231,26,15,0.5)' }}></div> Đang chọn
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', color: '#666' }}>
-            <div style={{ width: 24, height: 24, backgroundColor: '#111', borderTop: '3px solid #222', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent:'center', color: '#444' }}>×</div> Đã bán
+          {selectedLabels && <div className="ss-checkout-seats">{selectedLabels}</div>}
+          {countdown && (
+            <div className={`ss-checkout-timer ${urgent ? 'urgent' : ''}`}>
+              ⏱ Giữ ghế còn <strong>{countdown}</strong>
+            </div>
+          )}
+        </div>
+
+        <div className="ss-checkout-middle">
+          <div className="ss-discount-wrap">
+            {appliedDiscount ? (
+              <div className="ss-discount-applied">
+                <span className="ss-discount-badge">🎟️ Mã: {appliedDiscount.code} (-{appliedDiscount.discountAmount.toLocaleString()}đ)</span>
+                <button className="ss-discount-remove" onClick={() => { setAppliedDiscount(null); setDiscountCodeInput(''); }}>✕</button>
+              </div>
+            ) : (
+              <>
+                <input 
+                  type="text" 
+                  placeholder="Nhập mã giảm giá..." 
+                  className="ss-discount-input"
+                  value={discountCodeInput}
+                  onChange={e => setDiscountCodeInput(e.target.value.toUpperCase())}
+                />
+                <button 
+                  className="ss-discount-btn" 
+                  onClick={handleApplyDiscount} 
+                  disabled={loadingDiscount || !discountCodeInput || selectedSeatIds.length === 0}
+                >
+                  {loadingDiscount ? '...' : 'Áp dụng'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Checkout Bar Container */}
-        <div style={{ height: '100px' }}></div>
-        
-        {/* Sticky Checkout Bar */}
-        <div style={{
-          position: 'fixed',
-          bottom: '0',
-          left: '0',
-          right: '0',
-          background: 'rgba(15, 15, 20, 0.9)',
-          backdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(255,255,255,0.1)',
-          padding: '20px 40px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          boxShadow: '0 -10px 30px rgba(0,0,0,0.5)',
-          zIndex: 100
-        }}>
-          <div>
-            <div style={{ fontSize: '14px', color: '#aaa', marginBottom: '5px' }}>
-              {selectedSeatIds.length === 0 ? 'Vui lòng chọn ghế' : `Đã chọn ${selectedSeatIds.length} ghế`}
-            </div>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff' }}>
-              {selectedSeatIds.map(id => {
-                 const s = roomSeats.find(seat => seat._id === id);
-                 return s ? `${s.row}${s.number}` : '';
-              }).join(', ')}
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '13px', color: '#aaa' }}>Tổng thanh toán</div>
-              <div style={{ fontSize: '28px', fontWeight: '900', color: '#E71A0F' }}>
-                {totalPrice.toLocaleString()} đ
+        <div className="ss-checkout-right">
+          <div className="ss-checkout-price-wrap">
+            <div className="ss-checkout-price-label">Tổng thanh toán</div>
+            {appliedDiscount ? (
+              <div className="ss-checkout-price-discount-group">
+                <span className="ss-checkout-price old">{totalPrice.toLocaleString()} đ</span>
+                <span className="ss-checkout-price new">{finalPrice.toLocaleString()} đ</span>
               </div>
-            </div>
-            <button 
-              onClick={handleBooking}
-              disabled={selectedSeatIds.length === 0}
-              style={{
-                background: selectedSeatIds.length > 0 ? 'linear-gradient(135deg, #E71A0F, #ff4d4d)' : '#333',
-                color: selectedSeatIds.length > 0 ? '#fff' : '#666',
-                border: 'none',
-                padding: '16px 40px',
-                borderRadius: '8px',
-                fontSize: '18px',
-                fontWeight: 'bold',
-                cursor: selectedSeatIds.length > 0 ? 'pointer' : 'not-allowed',
-                transition: 'all 0.3s',
-                boxShadow: selectedSeatIds.length > 0 ? '0 10px 20px rgba(231,26,15,0.3)' : 'none',
-                textTransform: 'uppercase',
-                letterSpacing: '1px'
-              }}
-            >
-              Thanh Toán
-            </button>
+            ) : (
+              <div className="ss-checkout-price">{totalPrice.toLocaleString()} đ</div>
+            )}
           </div>
+          <button
+            className={`ss-checkout-btn ${selectedSeatIds.length > 0 && !booking ? 'active' : ''}`}
+            disabled={selectedSeatIds.length === 0 || booking}
+            onClick={handleBooking}
+          >
+            {booking ? '⌛ Đang xử lý...' : '🎬 Thanh Toán'}
+          </button>
         </div>
-      </div>
+      </footer>
+
+      <style>{`
+        /* Root */
+        .ss-root { display:flex; flex-direction:column; min-height:100vh; background:radial-gradient(ellipse at top,#1a1a2e 0%,#0a0a0f 100%); color:#fff; font-family:'Inter','Segoe UI',sans-serif; }
+
+        /* Loading */
+        .ss-center-screen { display:flex; align-items:center; justify-content:center; gap:10px; min-height:100vh; background:#0a0a0f; }
+        .ss-loading-dot { width:14px; height:14px; border-radius:50%; background:#E71A0F; animation:ssBouce 0.9s infinite alternate; }
+        .ss-loading-dot:nth-child(2){animation-delay:.3s;background:#ff4d4d;}
+        .ss-loading-dot:nth-child(3){animation-delay:.6s;background:#ff8080;}
+        @keyframes ssBouce{ from{transform:translateY(0);opacity:.6;} to{transform:translateY(-16px);opacity:1;} }
+
+        /* Header */
+        .ss-header {
+          position:sticky; top:0; z-index:100;
+          display:flex; align-items:center; gap:16px;
+          background:rgba(10,10,20,0.95); backdrop-filter:blur(20px);
+          border-bottom:1px solid rgba(255,255,255,0.08);
+          padding:12px 24px;
+        }
+        .ss-back-btn {
+          flex-shrink:0;
+          display:flex; align-items:center; gap:8px;
+          background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+          color:#ddd; padding:9px 18px; border-radius:30px;
+          font-size:14px; font-weight:600; cursor:pointer;
+          transition:all 0.2s; white-space:nowrap;
+        }
+        .ss-back-btn:hover { background:#E71A0F; border-color:#E71A0F; color:#fff; }
+
+        .ss-header-info { flex:1; text-align:center; overflow:hidden; }
+        .ss-movie-title { font-size:18px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .ss-header-meta { display:flex; justify-content:center; gap:6px; flex-wrap:wrap; font-size:12px; color:rgba(255,255,255,0.45); margin-top:3px; }
+        .ss-meta-sep { color:rgba(255,255,255,0.2); }
+
+        /* Timer */
+        .ss-timer-wrap { flex-shrink:0; }
+        .ss-timer-pill {
+          display:flex; align-items:center; gap:8px;
+          background:rgba(37,99,235,0.2); border:1px solid rgba(96,165,250,0.35);
+          border-radius:30px; padding:8px 16px; white-space:nowrap;
+          transition:all 0.4s;
+        }
+        .ss-timer-pill.urgent { background:rgba(185,28,28,0.25); border-color:rgba(248,113,113,0.5); animation:ssTimerPulse 1s infinite; }
+        .ss-timer-pill.inactive { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.1); }
+        @keyframes ssTimerPulse { 0%,100%{opacity:1;} 50%{opacity:.7;} }
+        .ss-timer-icon { font-size:16px; }
+        .ss-timer-label { font-size:11px; color:rgba(255,255,255,0.5); }
+        .ss-timer-value { font-size:20px; font-weight:800; color:#93c5fd; font-variant-numeric:tabular-nums; }
+        .ss-timer-pill.urgent .ss-timer-value { color:#fca5a5; }
+
+        /* Main */
+        .ss-main { flex:1; padding:40px 20px; max-width:900px; margin:0 auto; width:100%; }
+
+        /* Screen visual */
+        .ss-screen-wrap { text-align:center; margin-bottom:50px; }
+        .ss-screen {
+          width:70%; height:6px; margin:0 auto;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent);
+          border-radius:3px;
+          box-shadow:0 0 30px 8px rgba(255,255,255,0.08);
+        }
+        .ss-screen-label { margin-top:8px; font-size:11px; letter-spacing:6px; color:rgba(255,255,255,0.25); font-weight:700; }
+
+        /* Grid */
+        .ss-grid { display:flex; flex-direction:column; gap:10px; align-items:center; }
+        .ss-row { display:flex; align-items:center; gap:8px; }
+        .ss-row-label { width:26px; font-size:13px; font-weight:700; color:rgba(255,255,255,0.3); text-align:center; }
+        .ss-row-seats { display:flex; gap:7px; }
+
+        /* Seat */
+        .ss-seat {
+          position:relative;
+          width:36px; height:34px;
+          background:#1e1e2a; border-radius:6px 6px 3px 3px;
+          border-top:3px solid #2e2e40;
+          display:flex; align-items:center; justify-content:center;
+          font-size:12px; font-weight:600; color:#ccc;
+          cursor:pointer; user-select:none;
+          transition:transform 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+        .ss-seat:hover:not(.booked):not(.locked-other) { transform:scale(1.12) translateY(-3px); box-shadow:0 6px 18px rgba(255,255,255,0.08); }
+        .ss-seat.aisle-gap { margin-right:22px; }
+        .ss-seat.couple-wide { width:78px; }
+        .ss-seat-arm { position:absolute; width:3px; top:9px; bottom:2px; background:rgba(0,0,0,0.25); border-radius:2px; }
+        .ss-seat-arm-l { left:-2px; }
+        .ss-seat-arm-r { right:-2px; }
+
+        /* States */
+        .ss-seat.vip          { background:#3d2810; border-top-color:#c9960f; color:#f5c842; }
+        .ss-seat.couple       { background:#3b1f7a; border-top-color:#7c3aed; color:#c4b5fd; }
+        .ss-seat.selected     { background:#c9150d; border-top-color:#ff4d4d; color:#fff; transform:scale(1.1) translateY(-3px); box-shadow:0 0 18px rgba(231,26,15,0.55); }
+        .ss-seat.locked-other { background:#111117; border-top-color:#1e1e28; color:#333; cursor:not-allowed; opacity:0.6; }
+        .ss-seat.booked       { background:#0e0e14; border-top-color:#1a1a22; color:#2e2e3a; cursor:not-allowed; }
+
+        /* Legend */
+        .ss-legend { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; margin-top:40px; padding:18px 24px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:14px; }
+        .ss-legend-item { display:flex; align-items:center; gap:8px; font-size:13px; color:rgba(255,255,255,0.55); }
+        .ss-legend-swatch { pointer-events:none; border-radius:5px 5px 3px 3px; }
+
+        /* Checkout bar - Floating */
+        .ss-checkout {
+          position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+          z-index:100; width:92%; max-width:1000px;
+          display:flex; justify-content:space-between; align-items:center;
+          background:rgba(15,15,25,0.85); backdrop-filter:blur(20px);
+          border:1px solid rgba(255,255,255,0.1);
+          border-radius:24px;
+          padding:18px 32px;
+          box-shadow:0 20px 50px rgba(0,0,0,0.6);
+          animation:ssSlideUp 0.6s cubic-bezier(0.16,1,0.3,1);
+          gap:16px;
+        }
+        @keyframes ssSlideUp { from{transform:translate(-50%, 100%); opacity:0;} to{transform:translate(-50%, 0); opacity:1;} }
+        .ss-checkout-left { display:flex; flex-direction:column; gap:3px; }
+        .ss-checkout-count { font-size:13px; color:rgba(255,255,255,0.45); }
+        .ss-checkout-seats { font-size:15px; font-weight:700; color:#fff; }
+        .ss-checkout-timer { font-size:12px; color:#60a5fa; }
+        .ss-checkout-timer.urgent { color:#f87171; }
+
+        .ss-checkout-right { display:flex; align-items:center; gap:24px; }
+        .ss-checkout-price-wrap { text-align:right; }
+        .ss-checkout-price-label { font-size:12px; color:rgba(255,255,255,0.4); }
+        .ss-checkout-price { font-size:28px; font-weight:900; color:#E71A0F; line-height:1.1; font-variant-numeric:tabular-nums; }
+
+        .ss-checkout-btn {
+          padding:14px 36px; border:none; border-radius:10px;
+          font-size:16px; font-weight:700; text-transform:uppercase; letter-spacing:1px;
+          cursor:not-allowed; background:#1a1a26; color:#3a3a4a;
+          transition:all 0.25s; min-width:180px;
+        }
+        .ss-checkout-btn.active {
+          background:linear-gradient(135deg,#c9150d,#ff4d4d);
+          color:#fff; cursor:pointer;
+          box-shadow:0 8px 24px rgba(231,26,15,0.35);
+        }
+        .ss-checkout-btn.active:hover { transform:translateY(-2px); box-shadow:0 12px 32px rgba(231,26,15,0.5); }
+        
+        /* Discount Styles */
+        .ss-checkout-middle { display:flex; flex:1; justify-content:center; }
+        .ss-discount-wrap { display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); padding:6px; border-radius:12px; }
+        .ss-discount-input { background:transparent; border:none; color:#fff; padding:8px 12px; width:150px; outline:none; font-size:14px; text-transform:uppercase; font-family:inherit; }
+        .ss-discount-input::placeholder { color:rgba(255,255,255,0.3); text-transform:none; }
+        .ss-discount-btn { background:rgba(255,255,255,0.1); border:none; color:#fff; padding:8px 16px; border-radius:8px; font-weight:600; cursor:pointer; transition:all 0.2s; font-size:13px; }
+        .ss-discount-btn:hover:not(:disabled) { background:rgba(255,255,255,0.2); }
+        .ss-discount-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .ss-discount-applied { display:flex; align-items:center; gap:12px; padding:6px 14px; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3); border-radius:8px; }
+        .ss-discount-badge { font-size:13px; font-weight:600; color:#4ade80; }
+        .ss-discount-remove { background:rgba(255,255,255,0.1); border:none; border-radius:50%; width:24px; height:24px; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; transition:0.2s; }
+        .ss-discount-remove:hover { background:rgba(239,68,68,0.3); color:#f87171; }
+        
+        .ss-checkout-price-discount-group { display:flex; flex-direction:column; align-items:flex-end; }
+        .ss-checkout-price.old { font-size:14px; color:rgba(255,255,255,0.4); text-decoration:line-through; font-weight:500; }
+        .ss-checkout-price.new { font-size:28px; font-weight:900; color:#4ade80; }
+      `}</style>
     </div>
   );
 };

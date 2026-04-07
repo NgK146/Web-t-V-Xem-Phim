@@ -7,7 +7,7 @@ import Cinema from './src/models/Cinema.js';
 import Room from './src/models/Room.js';
 import Showtime from './src/models/Showtime.js';
 import Discount from './src/models/Discount.js';
-import { adminData, moviesData, cinemasData, discountData } from './src/data/mockData.js';
+import { adminData, moviesData, cinemasData, discountsData } from './src/data/mockData.js';
 
 const generateSeats = (rowsConfig) => {
   const seats = [];
@@ -105,12 +105,12 @@ const seed = async () => {
     const nowShowingMovies = await Movie.find({ status: 'now_showing' });
     let shCount = 0;
     for (const movie of nowShowingMovies) {
-      const room = allRooms[Math.floor(Math.random() * allRooms.length)];
-      const existing = await Showtime.findOne({ movie: movie._id, room: room._id });
-      if (!existing) {
+      for (let i = 0; i < 3; i++) {
+        const room = allRooms[Math.floor(Math.random() * allRooms.length)];
+        const dayOffset = i === 0 ? 0 : 1; 
         const start = new Date();
-        start.setDate(start.getDate() + 1);
-        start.setHours(19, 0, 0, 0);
+        start.setDate(start.getDate() + dayOffset);
+        start.setHours(14 + (i * 3), 0, 0, 0);
         const end = new Date(start);
         end.setMinutes(end.getMinutes() + movie.duration + 30);
 
@@ -133,10 +133,12 @@ const seed = async () => {
     console.log(`Created ${shCount} showtimes.`);
 
     // 5. Create Discounts
-    const existingDisc = await Discount.findOne({ code: discountData.code });
-    if (!existingDisc) {
-      await Discount.create(discountData);
-      console.log(`Discount code created: ${discountData.code}`);
+    for (const disc of discountsData) {
+      const exists = await Discount.findOne({ code: disc.code });
+      if (!exists) {
+        await Discount.create(disc);
+        console.log(`Discount code created: ${disc.code}`);
+      }
     }
 
     console.log('Seeding completed!');
