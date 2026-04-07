@@ -49,7 +49,7 @@ const templates = {
           ${booking.qrCode ? `
           <div style="text-align:center;padding:28px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.15);border-radius:12px;">
             <div style="color:#888;font-size:12px;letter-spacing:2px;margin-bottom:16px;text-transform:uppercase;">Xuất Trình QR Tại Rạp</div>
-            <img src="${booking.qrCode}" alt="QR Code" style="width:180px;height:180px;border-radius:8px;background:#fff;padding:8px;"/>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${booking.bookingCode}" alt="QR Code" style="width:180px;height:180px;border-radius:8px;background:#fff;padding:8px;"/>
             <div style="color:#555;font-size:11px;margin-top:12px;">Quét mã này tại quầy vé để nhận vé</div>
           </div>
           ` : ''}
