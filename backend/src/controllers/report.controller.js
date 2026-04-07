@@ -1,6 +1,8 @@
+import mongoose from 'mongoose';
 import Booking from '../models/Booking.js';
 import Movie from '../models/Movie.js';
 import User from '../models/User.js';
+import Showtime from '../models/Showtime.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import xlsx from 'xlsx';
 
@@ -101,5 +103,82 @@ export const exportRevenueExcel = async (req, res, next) => {
     res.setHeader('Content-Disposition', 'attachment; filename=revenue-report.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.send(buffer);
+  } catch (err) { next(err); }
+};
+
+/**
+ * @desc  Phân tích chuyên sâu: Occupancy, Retention, Real-time
+ * @route GET /api/reports/advanced
+ * @access Admin
+ */
+export const getAdvancedAnalytics = async (req, res, next) => {
+  try {
+    const ACTIVE_STATUSES = { status: { $in: ['pending', 'confirmed'] } };
+
+    // ============================================
+    // 1. REAL-TIME METRICS (Hôm nay)
+    // ============================================
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const todayBookingsAgg = await Booking.aggregate([
+      { $match: { ...ACTIVE_STATUSES, createdAt: { $gte: startOfToday } } },
+      { $group: {
+          _id: null,
+          todayRevenue: { $sum: '$finalPrice' },
+          todayTickets: { $sum: { $size: { $ifNull: ['$tickets', []] } } },
+          todayOrders: { $sum: 1 }
+      }}
+    ]);
+    const todayStats = todayBookingsAgg[0] || { todayRevenue: 0, todayTickets: 0, todayOrders: 0 };
+
+    // ============================================
+    // 2. TỶ LỆ LẤP ĐẦY (OCCUPANCY RATE)
+    // ============================================
+    // Lấy 10 suất chiếu đã/đang/sắp diễn ra gần nhất để phân tích độ lấp đầy
+    const recentShowtimes = await Showtime.find({ status: { $ne: 'cancelled' } })
+        .sort({ startTime: -1 })
+        .limit(10)
+        .populate('movie', 'title')
+        .populate('room', 'name capacity');
+
+    const occupancyRates = recentShowtimes.map(st => {
+      const totalSeats = st.seats.length || 1; 
+      const bookedSeats = st.seats.filter(s => s.status === 'booked').length;
+      return {
+        showtimeId: st._id,
+        movieTitle: st.movie?.title || 'Unknown',
+        roomName: st.room?.name || 'Unknown',
+        startTime: st.startTime,
+        totalSeats,
+        bookedSeats,
+        occupancyRate: Number(((bookedSeats / totalSeats) * 100).toFixed(2))
+      };
+    });
+
+    // ============================================
+    // 3. RETENTION COHORT (Khách mới vs Khách quay lại)
+    // ============================================
+    const retentionAgg = await Booking.aggregate([
+      { $match: ACTIVE_STATUSES },
+      { $group: { _id: '$user', orderCount: { $sum: 1 } } },
+      { $group: {
+          _id: { $cond: [{ $gt: ['$orderCount', 1] }, 'Returning', 'New'] },
+          users: { $sum: 1 }
+      }}
+    ]);
+
+    const retentionRecord = { New: 0, Returning: 0 };
+    retentionAgg.forEach(r => { retentionRecord[r._id] = r.users; });
+    const retentionData = [
+      { name: 'Khách Hàng Mới (1 Đơn)', value: retentionRecord.New, fill: '#3b82f6' },
+      { name: 'Khách Cũ (>1 Đơn)', value: retentionRecord.Returning, fill: '#10b981' }
+    ];
+
+    res.json(new ApiResponse(200, {
+      realTime: todayStats,
+      occupancyRates,
+      retentionData
+    }));
   } catch (err) { next(err); }
 };
