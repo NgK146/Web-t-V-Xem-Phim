@@ -14,16 +14,16 @@ const SeatSelection = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  const [showtime, setShowtime]           = useState(null);
-  const [roomSeats, setRoomSeats]         = useState([]);
-  const [seatStatuses, setSeatStatuses]   = useState({});
+  const [showtime, setShowtime] = useState(null);
+  const [roomSeats, setRoomSeats] = useState([]);
+  const [seatStatuses, setSeatStatuses] = useState({});
   const [selectedSeatIds, setSelectedSeatIds] = useState([]);
-  const [loading, setLoading]             = useState(true);
-  const [booking, setBooking]             = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [booking, setBooking] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState(null);
-  const timerRef                = useRef(null);
-  const lockedSeatsRef          = useRef([]);
+  const timerRef = useRef(null);
+  const lockedSeatsRef = useRef([]);
 
   // Discount UI State
   const [discountCodeInput, setDiscountCodeInput] = useState('');
@@ -53,7 +53,7 @@ const SeatSelection = () => {
     if (timeLeft !== 0) return;
     if (!lockedSeatsRef.current.length) return;
     toast.warning('⏱️ Hết thời gian giữ ghế! Vui lòng chọn lại.', { autoClose: 4000 });
-    bookingsApi.unlockSeats({ showtimeId: id, seatIds: lockedSeatsRef.current }).catch(() => {});
+    bookingsApi.unlockSeats({ showtimeId: id, seatIds: lockedSeatsRef.current }).catch(() => { });
     setSelectedSeatIds([]);
     lockedSeatsRef.current = [];
     setTimeLeft(null);
@@ -62,7 +62,7 @@ const SeatSelection = () => {
   useEffect(() => () => {
     clearInterval(timerRef.current);
     if (lockedSeatsRef.current.length)
-      bookingsApi.unlockSeats({ showtimeId: id, seatIds: lockedSeatsRef.current }).catch(() => {});
+      bookingsApi.unlockSeats({ showtimeId: id, seatIds: lockedSeatsRef.current }).catch(() => { });
   }, [id]);
 
   // ─── Socket ──────────────────────────────────────────────
@@ -92,9 +92,16 @@ const SeatSelection = () => {
       setShowtime(data);
       setRoomSeats(data.room?.seats || []);
 
+      // Populate seatStatuses immediately from API so orphan check works before socket fires
+      const initialStatuses = {};
+      data.seats?.forEach(s => {
+        initialStatuses[s.seat?.toString()] = s.status;
+      });
+      setSeatStatuses(initialStatuses);
+
       // Restore locked seats for current user upon reload
       if (user) {
-        let minTimeLeft = LOCK_SECONDS; 
+        let minTimeLeft = LOCK_SECONDS;
         const myLockedSeats = [];
         const now = new Date().getTime();
 
@@ -123,6 +130,43 @@ const SeatSelection = () => {
 
   useEffect(() => { fetchShowtime(); }, [fetchShowtime]);
 
+  // ─── Orphan seat check ───────────────────────────────────
+  // Returns true if the proposed selectedIds would leave exactly 1 empty seat
+  // trapped between unavailable seats or the row boundary.
+  const hasOrphanSeat = (proposedSelectedIds) => {
+    if (!showtime || !roomSeats.length) return false;
+
+    // Group room seats by row, sorted by number
+    const byRow = {};
+    roomSeats.forEach(s => {
+      if (!byRow[s.row]) byRow[s.row] = [];
+      byRow[s.row].push(s);
+    });
+    Object.values(byRow).forEach(arr => arr.sort((a, b) => a.number - b.number));
+
+    for (const seats of Object.values(byRow)) {
+      // Build status array: 'free' | 'taken'
+      const states = seats.map(s => {
+        const sid = s._id;
+        const st = seatStatuses[sid] || 'available';
+        if (proposedSelectedIds.includes(sid)) return 'taken'; // selected
+        if (st === 'booked') return 'taken';                   // already booked
+        if (st === 'locked') return 'taken';                   // locked by others
+        return 'free';
+      });
+
+      // Check each seat: is it free AND both neighbours are 'taken' or boundary?
+      for (let i = 0; i < states.length; i++) {
+        if (states[i] === 'free') {
+          const leftBlocked = i === 0 || states[i - 1] === 'taken';
+          const rightBlocked = i === states.length - 1 || states[i + 1] === 'taken';
+          if (leftBlocked && rightBlocked) return true;
+        }
+      }
+    }
+    return false;
+  };
+
   // ─── Toggle seat ─────────────────────────────────────────
   const toggleSeat = async (seat) => {
     if (!user) { navigate('/login'); return; }
@@ -134,6 +178,12 @@ const SeatSelection = () => {
 
     if (selectedSeatIds.includes(seatId)) {
       // Deselect → unlock
+      // Orphan check: would removing this seat leave an orphan elsewhere?
+      const proposed = selectedSeatIds.filter(s => s !== seatId);
+      if (hasOrphanSeat(proposed)) {
+        toast.warning('Không thể bỏ ghế này vì sẽ để lại 1 ghế trống bị kẹp — vui lòng bỏ ghế kế bên trước!', { autoClose: 4000 });
+        return;
+      }
       try {
         await bookingsApi.unlockSeats({ showtimeId: id, seatIds: [seatId] });
         lockedSeatsRef.current = lockedSeatsRef.current.filter(s => s !== seatId);
@@ -145,6 +195,12 @@ const SeatSelection = () => {
       } catch { toast.error('Không thể bỏ chọn ghế'); }
     } else {
       // Select → lock
+      // Orphan check: would adding this seat create an orphan elsewhere?
+      const proposed = [...selectedSeatIds, seatId];
+      if (hasOrphanSeat(proposed)) {
+        toast.warning('Không thể chọn ghế này vì sẽ để lại 1 ghế trống bị kẹp — hãy chọn thêm ghế kế bên!', { autoClose: 4000 });
+        return;
+      }
       try {
         await bookingsApi.lockSeats({ showtimeId: id, seatIds: [seatId] });
         lockedSeatsRef.current = [...lockedSeatsRef.current, seatId];
@@ -173,7 +229,7 @@ const SeatSelection = () => {
         const sw = showtime.seats?.find(s => s.seat?.toString() === sid);
         return sum + (sw?.price || showtime.basePrice || 0);
       }, 0);
-      
+
       const res = await discountsApi.validate({ code: discountCodeInput.trim(), amount: currentTotal });
       setAppliedDiscount({
         code: res.data.data.code,
@@ -192,10 +248,10 @@ const SeatSelection = () => {
     if (!selectedSeatIds.length) { toast.warning('Vui lòng chọn ít nhất 1 ghế'); return; }
     setBooking(true);
     try {
-      await bookingsApi.create({ 
-        showtimeId: id, 
+      await bookingsApi.create({
+        showtimeId: id,
         seatIds: selectedSeatIds,
-        discountCode: appliedDiscount?.code 
+        discountCode: appliedDiscount?.code
       });
       lockedSeatsRef.current = [];
       stopTimer();
@@ -295,18 +351,18 @@ const SeatSelection = () => {
               <div className="ss-row-label">{row}</div>
               <div className="ss-row-seats">
                 {rows[row].sort((a, b) => a.number - b.number).map((seat, idx) => {
-                  const status     = seatStatuses[seat._id] || 'available';
+                  const status = seatStatuses[seat._id] || 'available';
                   const isSelected = selectedSeatIds.includes(seat._id);
-                  const isMine     = lockedSeatsRef.current.includes(seat._id);
-                  const isBooked   = status === 'booked';
-                  const isLocked   = status === 'locked' && !isMine;
-                  const isAisle    = idx === Math.floor(rows[row].length / 2) - 1;
+                  const isMine = lockedSeatsRef.current.includes(seat._id);
+                  const isBooked = status === 'booked';
+                  const isLocked = status === 'locked' && !isMine;
+                  const isAisle = idx === Math.floor(rows[row].length / 2) - 1;
 
                   let cls = 'ss-seat';
-                  if (isBooked)      cls += ' booked';
+                  if (isBooked) cls += ' booked';
                   else if (isLocked) cls += ' locked-other';
                   else if (isSelected) cls += ' selected';
-                  else if (seat.type === 'vip')    cls += ' vip';
+                  else if (seat.type === 'vip') cls += ' vip';
                   else if (seat.type === 'couple') cls += ' couple';
 
                   return (
@@ -331,12 +387,12 @@ const SeatSelection = () => {
         {/* Legend */}
         <div className="ss-legend">
           {[
-            { cls: '',        label: 'Thường' },
-            { cls: 'vip',     label: 'VIP' },
-            { cls: 'couple',  label: 'Couple' },
-            { cls: 'selected',label: 'Đang chọn' },
+            { cls: '', label: 'Thường' },
+            { cls: 'vip', label: 'VIP' },
+            { cls: 'couple', label: 'Couple' },
+            { cls: 'selected', label: 'Đang chọn' },
             { cls: 'locked-other', label: 'Đang giữ' },
-            { cls: 'booked',  label: 'Đã bán' },
+            { cls: 'booked', label: 'Đã bán' },
           ].map((item, i) => (
             <div key={i} className="ss-legend-item">
               <div className={`ss-seat ss-legend-swatch ${item.cls}`} style={{ width: item.cls === 'couple' ? 40 : 24, height: 24, fontSize: 0 }} />
@@ -371,16 +427,16 @@ const SeatSelection = () => {
               </div>
             ) : (
               <>
-                <input 
-                  type="text" 
-                  placeholder="Nhập mã giảm giá..." 
+                <input
+                  type="text"
+                  placeholder="Nhập mã giảm giá..."
                   className="ss-discount-input"
                   value={discountCodeInput}
                   onChange={e => setDiscountCodeInput(e.target.value.toUpperCase())}
                 />
-                <button 
-                  className="ss-discount-btn" 
-                  onClick={handleApplyDiscount} 
+                <button
+                  className="ss-discount-btn"
+                  onClick={handleApplyDiscount}
                   disabled={loadingDiscount || !discountCodeInput || selectedSeatIds.length === 0}
                 >
                   {loadingDiscount ? '...' : 'Áp dụng'}

@@ -6,6 +6,7 @@ export const moviesApi = {
   getById:      (id)     => api.get(`/movies/${id}`),
   getNowShowing:()       => api.get('/movies/now-showing'),
   getComingSoon:()       => api.get('/movies/coming-soon'),
+  getRecommendations:()  => api.get('/movies/recommendations'),
   /** @param {FormData} formData */
   create:       (formData) => api.post('/movies', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

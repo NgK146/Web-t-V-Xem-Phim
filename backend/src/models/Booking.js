@@ -24,6 +24,7 @@ const bookingSchema = new mongoose.Schema({
   bookingCode:{ type: String, unique: true },
   cancelledAt:{ type: Date },
   cancelReason:{ type: String },
+  reminderSent:{ type: Boolean, default: false },
 }, { timestamps: true });
 
 bookingSchema.index({ user: 1, createdAt: -1 });

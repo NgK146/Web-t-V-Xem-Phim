@@ -1,5 +1,7 @@
 import Movie from '../models/Movie.js';
 import Showtime from '../models/Showtime.js';
+import Booking from '../models/Booking.js';
+import Review from '../models/Review.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import { buildPagination } from '../utils/pagination.js';
@@ -127,6 +129,92 @@ export const deleteMovie = async (req, res, next) => {
     if (!movie) throw new ApiError(404, 'Không tìm thấy phim');
     res.json(new ApiResponse(200, null, 'Xóa phim thành công'));
   } catch (err) { next(err); }
+};
+
+/**
+ * @desc  Lấy danh sách phim gợi ý cho người dùng
+ * @route GET /api/movies/recommendations
+ * @access Private
+ */
+export const getRecommendedMovies = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+
+    const bookings = await Booking.find({ user: userId, status: { $ne: 'cancelled' } })
+      .populate({
+        path: 'showtime',
+        populate: { path: 'movie', select: 'genre _id' }
+      });
+      
+    const reviews = await Review.find({ user: userId, rating: { $gte: 7 } })
+      .populate('movie', 'genre _id');
+
+    let watchedMovieIds = new Set();
+    const genreFrequency = {};
+
+    bookings.forEach(b => {
+       if(b.showtime && b.showtime.movie) {
+           watchedMovieIds.add(b.showtime.movie._id.toString());
+           b.showtime.movie.genre.forEach(g => {
+               genreFrequency[g] = (genreFrequency[g] || 0) + 1;
+           });
+       }
+    });
+
+    reviews.forEach(r => {
+        if(r.movie) {
+            watchedMovieIds.add(r.movie._id.toString());
+            r.movie.genre.forEach(g => {
+                genreFrequency[g] = (genreFrequency[g] || 0) + 2; 
+            });
+        }
+    });
+
+    if (Object.keys(genreFrequency).length === 0) {
+        const topMovies = await Movie.find({ status: 'now_showing' })
+            .sort('-avgRating -totalRatings')
+            .limit(10)
+            .lean();
+        
+        topMovies.forEach(m => m.matchReason = '🔥 Đang Thịnh Hành');
+        return res.json(new ApiResponse(200, topMovies, "Gợi ý mặc định"));
+    }
+
+    const topGenres = Object.entries(genreFrequency)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(entry => entry[0]);
+
+    const recommendedMovies = await Movie.find({
+        _id: { $nin: Array.from(watchedMovieIds) },
+        genre: { $in: topGenres },
+        status: { $in: ['now_showing', 'coming_soon'] }
+    })
+    .sort('-avgRating')
+    .limit(10)
+    .lean();
+
+    recommendedMovies.forEach(m => m.matchReason = `✨ Đúng Gu Bạn Nhất`);
+
+    if (recommendedMovies.length < 10) {
+        const fallbackMovies = await Movie.find({
+            _id: { $nin: [...Array.from(watchedMovieIds), ...recommendedMovies.map(m => m._id.toString())] },
+            status: 'now_showing'
+        })
+        .sort('-avgRating')
+        .limit(10 - recommendedMovies.length)
+        .lean();
+        
+        fallbackMovies.forEach(m => m.matchReason = `💡 Có thể bạn sẽ thích`);
+        
+        recommendedMovies.push(...fallbackMovies);
+    }
+
+    res.json(new ApiResponse(200, recommendedMovies, "Gợi ý cá nhân hóa"));
+
+  } catch (err) {
+    next(err);
+  }
 };
 
 /**

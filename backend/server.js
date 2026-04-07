@@ -3,6 +3,7 @@ import 'dotenv/config';
 import httpServer from './src/app.js';
 import connectDB from './src/config/db.js';
 import { seedDatabase } from './src/utils/seeder.js';
+import './src/cron/reminder.job.js';
 
 const PORT = process.env.PORT || 5000;
 
