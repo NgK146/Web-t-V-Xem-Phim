@@ -14,6 +14,8 @@ import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
 import BookingHistory from './pages/BookingHistory';
 import AdminDashboard from './pages/AdminDashboard';
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentCancel from './pages/PaymentCancel';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -85,6 +87,10 @@ function App() {
             </AdminRoute>
           }
         />
+
+        {/* Payment Status Routes */}
+        <Route path="/payment/success" element={<PaymentSuccess />} />
+        <Route path="/payment/cancel" element={<PaymentCancel />} />
       </Routes>
     </ErrorBoundary>
   );

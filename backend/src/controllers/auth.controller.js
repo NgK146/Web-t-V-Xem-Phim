@@ -26,33 +26,25 @@ const generateTokens = (id) => ({
  */
 export const register = async (req, res, next) => {
   try {
-    console.log('[Register API] Received body:', req.body);
     const { name, email, password, phone } = req.body;
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
-        console.log('[Register API] User already exists:', email);
-        throw new ApiError(400, 'Email đã được sử dụng');
-    }
+    if (existingUser) throw new ApiError(400, 'Email đã được sử dụng');
 
-    console.log('[Register API] Creating user in DB...');
     const user = await User.create({ name, email, password, phone });
-    console.log('[Register API] User created:', user._id);
     const { accessToken, refreshToken } = generateTokens(user._id);
 
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
-    console.log('[Register API] Refresh token saved');
 
-    // Tạm tắt gửi email để test register
-    // await sendEmail({
-    //   to: email,
-    //   subject: 'Chào mừng đến CinemaHub!',
-    //   template: 'welcome',
-    //   data: { name },
-    // });
+    // Gửi email chào mừng
+    sendEmail({
+      to: email,
+      subject: 'Chào mừng đến CineBooking!',
+      template: 'welcome',
+      data: { name },
+    }).catch(() => {}); // Non-blocking — không fail registration nếu email lỗi
 
-    console.log('[Register API] Sending success response');
     res.status(201).json(
       new ApiResponse(
         201,
@@ -65,7 +57,6 @@ export const register = async (req, res, next) => {
       )
     );
   } catch (err) {
-    console.error('[Register API] Error occurred:', err);
     next(err);
   }
 };

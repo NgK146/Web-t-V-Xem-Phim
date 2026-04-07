@@ -10,22 +10,29 @@ export const useAuthStore = create(
 
       /** @param {{ user: object, accessToken: string, refreshToken: string }} data */
       setAuth: (data) => {
-        sessionStorage.setItem('accessToken',  data.accessToken);
-        sessionStorage.setItem('refreshToken', data.refreshToken);
+        localStorage.setItem('accessToken',  data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
         set({ user: data.user, token: data.accessToken });
+      },
+
+      /** Cập nhật thông tin user (dùng sau khi update profile) */
+      setUser: (userData) => {
+        set((state) => ({
+          user: { ...state.user, ...userData },
+        }));
       },
 
       logout: async () => {
         await api.post('/auth/logout').catch(() => {});
-        sessionStorage.removeItem('accessToken');
-        sessionStorage.removeItem('refreshToken');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         set({ user: null, token: null });
       },
     }),
-    { 
-      name: 'auth-storage', 
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: (s) => ({ user: s.user, token: s.token }) 
+    {
+      name:       'auth-storage',
+      storage:    createJSONStorage(() => localStorage), // ✅ Đổi sang localStorage để persist khi đóng tab
+      partialize: (s) => ({ user: s.user, token: s.token }),
     }
   )
 );

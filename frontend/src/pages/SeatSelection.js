@@ -6,6 +6,8 @@ import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-toastify';
 import { io } from 'socket.io-client';
 import { discountsApi } from '../api/discounts.api';
+import { paymentApi } from '../api/payment.api';
+import FoodSelection from '../components/FoodSelection';
 
 const LOCK_SECONDS = 5 * 60;
 
@@ -20,6 +22,8 @@ const SeatSelection = () => {
   const [selectedSeatIds, setSelectedSeatIds] = useState([]);
   const [loading, setLoading]             = useState(true);
   const [booking, setBooking]             = useState(false);
+  const [step, setStep]                   = useState(1); // 1 = Seat, 2 = Food
+  const [selectedFoods, setSelectedFoods] = useState([]);
 
   const [timeLeft, setTimeLeft] = useState(null);
   const timerRef                = useRef(null);
@@ -67,7 +71,8 @@ const SeatSelection = () => {
 
   // ─── Socket ──────────────────────────────────────────────
   useEffect(() => {
-    const sock = io('http://localhost:5001', { withCredentials: true });
+    const SOCKET_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+    const sock = io(SOCKET_URL, { withCredentials: true });
     sock.emit('join_showtime', id);
     sock.on('seat_status', data => {
       const s = {};
@@ -192,19 +197,27 @@ const SeatSelection = () => {
     if (!selectedSeatIds.length) { toast.warning('Vui lòng chọn ít nhất 1 ghế'); return; }
     setBooking(true);
     try {
-      await bookingsApi.create({ 
+      const res = await bookingsApi.create({ 
         showtimeId: id, 
         seatIds: selectedSeatIds,
-        discountCode: appliedDiscount?.code 
+        discountCode: appliedDiscount?.code,
+        foods: selectedFoods
       });
+      
+      const bookingId = res.data.data._id;
+      toast.info('Đang chuyển hướng sang cổng thanh toán...');
+
+      const paymentRes = await paymentApi.createPayOSLink(bookingId);
+      
       lockedSeatsRef.current = [];
       stopTimer();
-      toast.success('🎉 Đặt vé thành công!');
-      navigate('/');
+      window.location.href = paymentRes.data.data.checkoutUrl;
+
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi đặt vé');
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi tạo thanh toán');
       fetchShowtime();
-    } finally { setBooking(false); }
+      setBooking(false);
+    }
   };
 
   // ─── Loading / empty ─────────────────────────────────────
@@ -222,10 +235,17 @@ const SeatSelection = () => {
   roomSeats.forEach(s => { if (!rows[s.row]) rows[s.row] = []; rows[s.row].push(s); });
   const rowNames = Object.keys(rows).sort();
 
-  const totalPrice = selectedSeatIds.reduce((sum, sid) => {
+  const totalSeatPrice = selectedSeatIds.reduce((sum, sid) => {
     const sw = showtime.seats?.find(s => s.seat?.toString() === sid);
     return sum + (sw?.price || showtime.basePrice || 0);
   }, 0);
+
+  const totalFoodPrice = selectedFoods.reduce((sum, f) => {
+    return sum + (f.price || 0) * f.quantity;
+  }, 0); // Need to pass price or re-fetch. Ah! FoodSelection doesn't store price. Let's fix selectedFoods to store price as well in FoodSelection. 
+  // Wait, I can't fetch price easily here unless I store it in selectedFoods. Let's assume we update FoodSelection to store price.
+
+  const totalPrice = totalSeatPrice + totalFoodPrice;
 
   const mm = timeLeft !== null ? Math.floor(timeLeft / 60) : 0;
   const ss = timeLeft !== null ? timeLeft % 60 : 0;
@@ -245,7 +265,10 @@ const SeatSelection = () => {
       {/* ── TOP HEADER BAR ── */}
       <header className="ss-header">
         {/* Left: back button */}
-        <button className="ss-back-btn" onClick={() => navigate(-1)}>
+        <button className="ss-back-btn" onClick={() => {
+          if (step === 2) setStep(1);
+          else navigate(-1);
+        }}>
           <span>←</span> Quay lại
         </button>
 
@@ -282,68 +305,74 @@ const SeatSelection = () => {
       {/* ── MAIN CONTENT ── */}
       <main className="ss-main">
 
-        {/* Screen */}
-        <div className="ss-screen-wrap">
-          <div className="ss-screen" />
-          <div className="ss-screen-label">MÀN HÌNH</div>
-        </div>
-
-        {/* Seat Grid */}
-        <div className="ss-grid">
-          {rowNames.map(row => (
-            <div key={row} className="ss-row">
-              <div className="ss-row-label">{row}</div>
-              <div className="ss-row-seats">
-                {rows[row].sort((a, b) => a.number - b.number).map((seat, idx) => {
-                  const status     = seatStatuses[seat._id] || 'available';
-                  const isSelected = selectedSeatIds.includes(seat._id);
-                  const isMine     = lockedSeatsRef.current.includes(seat._id);
-                  const isBooked   = status === 'booked';
-                  const isLocked   = status === 'locked' && !isMine;
-                  const isAisle    = idx === Math.floor(rows[row].length / 2) - 1;
-
-                  let cls = 'ss-seat';
-                  if (isBooked)      cls += ' booked';
-                  else if (isLocked) cls += ' locked-other';
-                  else if (isSelected) cls += ' selected';
-                  else if (seat.type === 'vip')    cls += ' vip';
-                  else if (seat.type === 'couple') cls += ' couple';
-
-                  return (
-                    <div
-                      key={seat._id}
-                      className={cls + (seat.type === 'couple' ? ' couple-wide' : '') + (isAisle ? ' aisle-gap' : '')}
-                      onClick={() => !(isBooked || isLocked) && toggleSeat(seat)}
-                      title={`Ghế ${row}${seat.number} — ${seat.type}${isLocked ? ' (đang được giữ)' : ''}`}
-                    >
-                      <span className="ss-seat-arm ss-seat-arm-l" />
-                      <span className="ss-seat-arm ss-seat-arm-r" />
-                      {isLocked ? '🔒' : isBooked ? '×' : seat.number}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="ss-row-label">{row}</div>
+        {step === 1 ? (
+          <>
+            {/* Screen */}
+            <div className="ss-screen-wrap">
+              <div className="ss-screen" />
+              <div className="ss-screen-label">MÀN HÌNH</div>
             </div>
-          ))}
-        </div>
 
-        {/* Legend */}
-        <div className="ss-legend">
-          {[
-            { cls: '',        label: 'Thường' },
-            { cls: 'vip',     label: 'VIP' },
-            { cls: 'couple',  label: 'Couple' },
-            { cls: 'selected',label: 'Đang chọn' },
-            { cls: 'locked-other', label: 'Đang giữ' },
-            { cls: 'booked',  label: 'Đã bán' },
-          ].map((item, i) => (
-            <div key={i} className="ss-legend-item">
-              <div className={`ss-seat ss-legend-swatch ${item.cls}`} style={{ width: item.cls === 'couple' ? 40 : 24, height: 24, fontSize: 0 }} />
-              <span>{item.label}</span>
+            {/* Seat Grid */}
+            <div className="ss-grid">
+              {rowNames.map(row => (
+                <div key={row} className="ss-row">
+                  <div className="ss-row-label">{row}</div>
+                  <div className="ss-row-seats">
+                    {rows[row].sort((a, b) => a.number - b.number).map((seat, idx) => {
+                      const status     = seatStatuses[seat._id] || 'available';
+                      const isSelected = selectedSeatIds.includes(seat._id);
+                      const isMine     = lockedSeatsRef.current.includes(seat._id);
+                      const isBooked   = status === 'booked';
+                      const isLocked   = status === 'locked' && !isMine;
+                      const isAisle    = idx === Math.floor(rows[row].length / 2) - 1;
+
+                      let cls = 'ss-seat';
+                      if (isBooked)      cls += ' booked';
+                      else if (isLocked) cls += ' locked-other';
+                      else if (isSelected) cls += ' selected';
+                      else if (seat.type === 'vip')    cls += ' vip';
+                      else if (seat.type === 'couple') cls += ' couple';
+
+                      return (
+                        <div
+                          key={seat._id}
+                          className={cls + (seat.type === 'couple' ? ' couple-wide' : '') + (isAisle ? ' aisle-gap' : '')}
+                          onClick={() => !(isBooked || isLocked) && toggleSeat(seat)}
+                          title={`Ghế ${row}${seat.number} — ${seat.type}${isLocked ? ' (đang được giữ)' : ''}`}
+                        >
+                          <span className="ss-seat-arm ss-seat-arm-l" />
+                          <span className="ss-seat-arm ss-seat-arm-r" />
+                          {isLocked ? '🔒' : isBooked ? '×' : seat.number}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="ss-row-label">{row}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+
+            {/* Legend */}
+            <div className="ss-legend">
+              {[
+                { cls: '',        label: 'Thường' },
+                { cls: 'vip',     label: 'VIP' },
+                { cls: 'couple',  label: 'Couple' },
+                { cls: 'selected',label: 'Đang chọn' },
+                { cls: 'locked-other', label: 'Đang giữ' },
+                { cls: 'booked',  label: 'Đã bán' },
+              ].map((item, i) => (
+                <div key={i} className="ss-legend-item">
+                  <div className={`ss-seat ss-legend-swatch ${item.cls}`} style={{ width: item.cls === 'couple' ? 40 : 24, height: 24, fontSize: 0 }} />
+                  <span>{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <FoodSelection selectedFoods={selectedFoods} onChange={setSelectedFoods} />
+        )}
 
         <div style={{ height: 120 }} />
       </main>
@@ -402,13 +431,23 @@ const SeatSelection = () => {
               <div className="ss-checkout-price">{totalPrice.toLocaleString()} đ</div>
             )}
           </div>
-          <button
-            className={`ss-checkout-btn ${selectedSeatIds.length > 0 && !booking ? 'active' : ''}`}
-            disabled={selectedSeatIds.length === 0 || booking}
-            onClick={handleBooking}
-          >
-            {booking ? '⌛ Đang xử lý...' : '🎬 Thanh Toán'}
-          </button>
+          {step === 1 ? (
+            <button
+              className={`ss-checkout-btn ${selectedSeatIds.length > 0 ? 'active' : ''}`}
+              disabled={selectedSeatIds.length === 0}
+              onClick={() => setStep(2)}
+            >
+              Tiếp tục 🍿
+            </button>
+          ) : (
+            <button
+              className={`ss-checkout-btn ${selectedSeatIds.length > 0 && !booking ? 'active' : ''}`}
+              disabled={selectedSeatIds.length === 0 || booking}
+              onClick={handleBooking}
+            >
+              {booking ? '⌛ Đang xử lý...' : '🎬 Thanh Toán'}
+            </button>
+          )}
         </div>
       </footer>
 

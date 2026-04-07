@@ -7,10 +7,18 @@ const ticketSchema = new mongoose.Schema({
   price:     { type: Number },
 }, { _id: false });
 
+const orderItemSchema = new mongoose.Schema({
+  food:     { type: mongoose.Schema.Types.ObjectId, ref: 'Food' },
+  name:     { type: String },
+  price:    { type: Number },
+  quantity: { type: Number },
+}, { _id: false });
+
 const bookingSchema = new mongoose.Schema({
   user:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   showtime:   { type: mongoose.Schema.Types.ObjectId, ref: 'Showtime', required: true },
   tickets:    [ticketSchema],
+  foods:      [orderItemSchema], // Food & Beverage Combos
   totalPrice: { type: Number, required: true },
   discount:   { type: mongoose.Schema.Types.ObjectId, ref: 'Discount' },
   finalPrice: { type: Number, required: true },
@@ -22,10 +30,12 @@ const bookingSchema = new mongoose.Schema({
   showstartTime: { type: Date },
   qrCode:     { type: String },
   bookingCode:{ type: String, unique: true },
+  orderCode:  { type: Number, unique: true, sparse: true }, // For PayOS integration
   cancelledAt:{ type: Date },
   cancelReason:{ type: String },
 }, { timestamps: true });
 
 bookingSchema.index({ user: 1, createdAt: -1 });
+bookingSchema.index({ orderCode: 1 });
 
 export default mongoose.model('Booking', bookingSchema);

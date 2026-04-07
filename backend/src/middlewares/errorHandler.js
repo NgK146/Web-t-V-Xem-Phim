@@ -1,4 +1,5 @@
 import { ApiError } from '../utils/ApiError.js';
+import fs from 'fs';
 
 /**
  * Xử lý lỗi Mongoose CastError (Ví dụ ID sai định dạng)
@@ -56,6 +57,7 @@ const sendErrorDev = (err, req, res) => {
 const sendErrorProd = (err, req, res) => {
   // Lỗi do chúng ta tự bắt (ApiError) hoặc lỗi đã dự tính được
   if (err.isOperational) {
+    fs.appendFileSync('error_log.txt', JSON.stringify({ time: new Date(), route: req.originalUrl, status: err.statusCode, message: err.message, err: err }) + '\n');
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,

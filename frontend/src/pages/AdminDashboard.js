@@ -8,6 +8,7 @@ import AdminCinemas from '../components/AdminCinemas';
 import AdminShowtimes from '../components/AdminShowtimes';
 import AdminDiscounts from '../components/AdminDiscounts';
 import AdminReports from '../components/AdminReports';
+import AdminFoods from '../components/AdminFoods';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuthStore();
@@ -117,6 +118,12 @@ const AdminDashboard = () => {
             onClick={() => setActiveTab('showtimes')}
           >
             <span>⏰</span> Suất Chiếu
+          </button>
+          <button
+            className={`admin-nav-item ${activeTab === 'foods' ? 'active' : ''}`}
+            onClick={() => setActiveTab('foods')}
+          >
+            <span>🍿</span> Bắp Nước
           </button>
           <button
             className={`admin-nav-item ${activeTab === 'discounts' ? 'active' : ''}`}
@@ -278,6 +285,7 @@ const AdminDashboard = () => {
         {activeTab === 'movies' && <AdminMovies />}
         {activeTab === 'cinemas' && <AdminCinemas />}
         {activeTab === 'showtimes' && <AdminShowtimes />}
+        {activeTab === 'foods' && <AdminFoods />}
         {activeTab === 'discounts' && <AdminDiscounts />}
         {activeTab === 'reports' && <AdminReports />}
 

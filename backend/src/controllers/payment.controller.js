@@ -1,56 +1,102 @@
-const paymentService = require('../services/payment.service');
-const Booking = require('../models/Booking');
-const Payment = require('../models/Payment');
+import Booking from '../models/Booking.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
+import { ApiError } from '../utils/ApiError.js';
+import { createPayOSPaymentLink, verifyPayOSWebhookData, getPayOSPaymentStatus } from '../services/payment.service.js';
 
-// POST /api/payment/stripe/create-intent
-exports.createStripeIntent = async (req, res) => {
-  const { bookingId } = req.body;
-  const booking = await Booking.findById(bookingId);
-  if (!booking) return res.status(404).json({ message: 'Booking not found' });
+/**
+ * @desc  Tạo Link thanh toán PayOS
+ * @route POST /api/payments/payos/create-link
+ * @access Private
+ */
+export const createPayOSPayment = async (req, res, next) => {
+  try {
+    const { bookingId } = req.body;
+    if (!bookingId) throw new ApiError(400, 'Thiếu bookingId');
 
-  const result = await paymentService.createStripePaymentIntent({
-    amount: booking.totalPrice,
-    bookingId,
-    userId: req.user._id,
-  });
-  res.json(result);
-};
+    const booking = await Booking.findById(bookingId);
+    if (!booking) throw new ApiError(404, 'Không tìm thấy booking');
+    if (booking.user.toString() !== req.user._id.toString()) {
+      throw new ApiError(403, 'Không có quyền thanh toán booking này');
+    }
+    if (booking.status === 'confirmed') {
+      throw new ApiError(400, 'Booking này đã được thanh toán');
+    }
 
-// POST /api/payment/stripe/webhook
-exports.stripeWebhook = async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  const event = paymentService.confirmStripeWebhook(req.rawBody, sig);
+    // PayOS requires a unique integer orderCode. Max length 16.
+    // Timestamp (13 digits) + Random (3 digits) = 16 digits
+    const orderCode = Number(String(Date.now()).slice(-9) + Math.floor(100 + Math.random() * 900));
+    
+    booking.orderCode = orderCode;
+    await booking.save({ validateBeforeSave: false });
 
-  if (event.type === 'payment_intent.succeeded') {
-    const { bookingId } = event.data.object.metadata;
-    await Booking.findByIdAndUpdate(bookingId, { status: 'confirmed' });
-    await Payment.create({ booking: bookingId, method: 'stripe', status: 'success' });
+    // Ensure frontend port is correctly matched (Assuming React is on port 3000)
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    const cancelUrl = `${clientUrl}/payment/cancel`;
+    const returnUrl = `${clientUrl}/payment/success?orderCode=${orderCode}`;
+
+    const paymentLinkData = await createPayOSPaymentLink({
+      orderCode,
+      amount: booking.finalPrice,
+      bookingId: booking.bookingCode || bookingId.substring(0, 8),
+      cancelUrl,
+      returnUrl
+    });
+
+    res.json(new ApiResponse(200, { checkoutUrl: paymentLinkData.checkoutUrl }, 'Tạo link thanh toán PayOS thành công'));
+  } catch (err) { 
+    next(err); 
   }
-  res.json({ received: true });
 };
 
-// POST /api/payment/vnpay/create-url
-exports.createVNPayUrl = async (req, res) => {
-  const { bookingId } = req.body;
-  const booking = await Booking.findById(bookingId);
-  const ipAddr = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
-  const url = paymentService.createVNPayUrl({
-    amount: booking.totalPrice,
-    bookingId: booking._id.toString(),
-    ipAddr,
-  });
-  res.json({ paymentUrl: url });
-};
-
-// GET /api/payment/vnpay-return
-exports.vnpayReturn = async (req, res) => {
-  const result = paymentService.verifyVNPayReturn({ ...req.query });
-  if (result.isValid && result.isSuccess) {
-    const bookingId = result.data.vnp_TxnRef.split('_')[0];
-    await Booking.findByIdAndUpdate(bookingId, { status: 'confirmed' });
-    await Payment.create({ booking: bookingId, method: 'vnpay', status: 'success' });
-    return res.redirect(`${process.env.FRONTEND_URL}/booking/success?id=${bookingId}`);
+/**
+ * @desc  Webhook nhận thông báo thanh toán từ PayOS
+ * @route POST /api/payments/payos/webhook
+ * @access Public (PayOS Server)
+ */
+export const payOSWebhook = async (req, res, next) => {
+  try {
+    const webhookData = verifyPayOSWebhookData(req.body);
+    
+    if (webhookData.code === "00" || webhookData.success === true) {
+      const orderCode = webhookData.data?.orderCode;
+      if (orderCode) {
+        await Booking.findOneAndUpdate(
+          { orderCode: Number(orderCode) },
+          { status: 'confirmed', paymentMethod: 'payos', paidAt: new Date() }
+        );
+      }
+    }
+    
+    res.json({ success: true, message: 'Webhook received' });
+  } catch (err) {
+    console.error('PayOS Webhook error:', err);
+    res.json({ success: false, message: 'Invalid webhook' });
   }
-  res.redirect(`${process.env.FRONTEND_URL}/booking/failed`);
+};
+
+/**
+ * @desc  Kiểm tra trạng thái đơn hàng PayOS từ Client
+ * @route GET /api/payments/payos/status/:orderCode
+ * @access Public
+ */
+export const checkPaymentStatus = async (req, res, next) => {
+  try {
+    const { orderCode } = req.params;
+    if (!orderCode) throw new ApiError(400, 'Thiếu mã đơn hàng');
+
+    const paymentInfo = await getPayOSPaymentStatus(orderCode);
+    
+    if (paymentInfo && paymentInfo.status === 'PAID') {
+      const booking = await Booking.findOneAndUpdate(
+        { orderCode: Number(orderCode) },
+        { status: 'confirmed', paymentMethod: 'payos', paidAt: new Date() },
+        { new: true }
+      );
+      res.json(new ApiResponse(200, { status: 'PAID', booking }, 'Thanh toán đã hoàn tất'));
+    } else {
+      res.json(new ApiResponse(200, { status: paymentInfo?.status || 'PENDING' }, 'Đang chờ xử lý'));
+    }
+  } catch (err) {
+    next(err);
+  }
 };

@@ -16,6 +16,7 @@ import paymentRoutes from './routes/payment.routes.js';
 import reviewRoutes from './routes/review.routes.js';
 import discountRoutes from './routes/discount.routes.js';
 import reportRoutes from './routes/report.routes.js';
+import foodRoutes from './routes/food.routes.js';
 import { initSeatSocket } from './sockets/seat.socket.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
@@ -47,6 +48,7 @@ app.use('/api/payments',  paymentRoutes);
 app.use('/api/reviews',   reviewRoutes);
 app.use('/api/discounts', discountRoutes);
 app.use('/api/reports',   reportRoutes);
+app.use('/api/foods',     foodRoutes);
 
 // Health check
 app.get('/health', (_, res) => res.json({ status: 'ok' }));

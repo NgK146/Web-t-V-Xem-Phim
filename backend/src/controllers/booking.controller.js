@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Booking from '../models/Booking.js';
 import Showtime from '../models/Showtime.js';
 import Discount from '../models/Discount.js';
+import Food from '../models/Food.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import { generateQRCode } from '../services/qr.service.js';
@@ -17,7 +18,7 @@ import { io } from '../app.js';
  */
 export const createBooking = async (req, res, next) => {
   try {
-    const { showtimeId, seatIds, discountCode } = req.body;
+    const { showtimeId, seatIds, discountCode, foods = [] } = req.body;
 
     const showtime = await Showtime.findById(showtimeId)
       .populate('movie room');
@@ -68,6 +69,26 @@ export const createBooking = async (req, res, next) => {
       totalPrice += seat.price;
     }
 
+    // Xử lý đồ ăn thức uống (F&B)
+    const bookingFoods = [];
+    for (const item of foods) {
+      if (!item.foodId || !item.quantity || item.quantity <= 0) continue;
+      
+      const foodDoc = await Food.findById(item.foodId);
+      if (!foodDoc || !foodDoc.isActive) {
+        throw new ApiError(400, `Món ăn không tồn tại hoặc đã ngừng bán`);
+      }
+      
+      const itemPrice = foodDoc.price * item.quantity;
+      bookingFoods.push({
+        food: foodDoc._id,
+        name: foodDoc.name,
+        price: foodDoc.price,
+        quantity: item.quantity,
+      });
+      totalPrice += itemPrice;
+    }
+
     // Áp dụng mã giảm giá
     let finalPrice = totalPrice;
     let discountDoc = null;
@@ -104,10 +125,11 @@ export const createBooking = async (req, res, next) => {
       user: req.user._id,
       showtime: showtimeId,
       tickets,
+      foods: bookingFoods,
       totalPrice,
       discount: discountDoc?._id,
       finalPrice,
-      status: 'confirmed',  // Tự xác nhận vì không có cổng thanh toán thực
+      status: 'pending',  // Initial state is pending until PayOS confirms via Webhook
       bookingCode,
       // Store snapshot for long-term history reliability
       movieTitle:    showtime.movieTitle || showtime.movie?.title,

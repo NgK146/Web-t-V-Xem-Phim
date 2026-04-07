@@ -8,7 +8,7 @@ const api = axios.create({
 
 // Request interceptor: gắn token
 api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('accessToken');
+  const token = localStorage.getItem('accessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -30,7 +30,8 @@ api.interceptors.response.use(
         original.headers.Authorization = `Bearer ${data.data.accessToken}`;
         return api(original);
       } catch {
-        sessionStorage.clear();
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         window.location.href = '/login';
       }
     }
