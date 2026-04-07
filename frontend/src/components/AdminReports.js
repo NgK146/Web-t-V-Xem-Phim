@@ -2,21 +2,27 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import api from '../api/axios';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area,
+  PieChart, Pie, Cell, Legend
 } from 'recharts';
 
 const AdminReports = () => {
   const [data, setData] = useState(null);
+  const [advData, setAdvData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/reports/dashboard');
-      setData(res.data.data);
+      const [dbRes, advRes] = await Promise.all([
+        api.get('/reports/dashboard'),
+        api.get('/reports/advanced')
+      ]);
+      setData(dbRes.data.data);
+      setAdvData(advRes.data.data);
     } catch (err) {
-      toast.error('Lỗi khi tải báo cáo doanh thu');
+      toast.error('Lỗi khi tải báo cáo');
     } finally {
       setLoading(false);
     }
@@ -184,6 +190,94 @@ const AdminReports = () => {
             </ResponsiveContainer>
           </div>
       </div>
+
+      {/* ADVANCED ANALYTICS SECTION */}
+      {advData && (
+        <div style={{ marginTop: '3.5rem', borderTop: '2px dashed #e5e7eb', paddingTop: '2.5rem' }}>
+          <div style={{ marginBottom: '2rem' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#111827', margin: 0 }}>Advanced Analytics</h2>
+            <p style={{ color: '#6b7280', margin: '8px 0 0 0', fontSize: '15px' }}>Phân tích Real-time, Tỷ lệ lấp đầy & Retention</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+             {/* Realtime Flash Stats */}
+             <div style={{ background: 'linear-gradient(135deg, #111827, #1f2937)', borderRadius: '16px', padding: '24px', color: '#fff', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
+               <div style={{ fontSize: '13px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>HÔM NAY - Live 🔴</div>
+               <div style={{ marginTop: '15px', fontSize: '32px', fontWeight: '800', color: '#4ade80' }}>
+                 {advData.realTime.todayRevenue.toLocaleString()}đ
+               </div>
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#9ca3af' }}>VÉ BÁN RA</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{advData.realTime.todayTickets}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#9ca3af' }}>ĐƠN HÀNG</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{advData.realTime.todayOrders}</div>
+                  </div>
+               </div>
+             </div>
+
+             {/* Retention Pie Chart */}
+             <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', border: '1px solid #e5e7eb', gridColumn: 'span 2', display: 'flex', alignItems: 'center' }}>
+               <div style={{ width: '40%' }}>
+                 <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#111827' }}>Customer Retention</h3>
+                 <p style={{ margin: 0, fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+                   Đánh giá độ trung thành: Tỷ lệ khách hàng mua vé lần đầu tiên so với khách hàng quay lại mua nhiều lần.
+                 </p>
+               </div>
+               <div style={{ width: '60%', height: '180px' }}>
+                 <ResponsiveContainer>
+                   <PieChart>
+                     <Pie data={advData.retentionData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" stroke="none">
+                       {advData.retentionData.map((entry, index) => (
+                         <Cell key={`cell-${index}`} fill={entry.fill} />
+                       ))}
+                     </Pie>
+                     <Tooltip contentStyle={{ borderRadius: '8px' }} />
+                     <Legend verticalAlign="middle" align="right" layout="vertical" wrapperStyle={{ fontSize: '14px', fontWeight: '600' }}/>
+                   </PieChart>
+                 </ResponsiveContainer>
+               </div>
+             </div>
+          </div>
+
+          {/* Occupancy Rate Bar Chart */}
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', border: '1px solid #e5e7eb' }}>
+            <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#111827' }}>Tỷ Lệ Lấp Đầy (Occupancy Rate) Xếp Theo Suất Chiếu</h3>
+            <div style={{ width: '100%', height: 350 }}>
+              <ResponsiveContainer>
+                <BarChart 
+                  data={advData.occupancyRates.map(d => ({ 
+                    ...d, 
+                    displayName: `${d.movieTitle} (${new Date(d.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` 
+                  }))} 
+                  layout="vertical" 
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                  <XAxis type="number" domain={[0, 100]} tickFormatter={(val) => `${val}%`} stroke="#9ca3af" />
+                  <YAxis type="category" dataKey="displayName" width={180} tick={{ fontSize: 12, fontWeight: 'bold' }} />
+                  <Tooltip 
+                    formatter={(value, name, props) => [`${value}% (${props.payload.bookedSeats}/${props.payload.totalSeats} ghế)`, 'Tỷ lệ Lấp đầy']}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }} 
+                  />
+                  <Bar dataKey="occupancyRate" fill="#facc15" radius={[0, 4, 4, 0]} barSize={25}>
+                    {advData.occupancyRates.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={entry.occupancyRate > 75 ? '#ef4444' : entry.occupancyRate > 40 ? '#f59e0b' : '#3b82f6'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '15px', fontSize: '13px', color: '#6b7280', fontWeight: '600' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: 12, height: 12, background: '#ef4444', borderRadius: 2 }}></div> Cháy Vé (&gt;75%)</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: 12, height: 12, background: '#f59e0b', borderRadius: 2 }}></div> Khá đông (&gt;40%)</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: 12, height: 12, background: '#3b82f6', borderRadius: 2 }}></div> Vắng khách</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
