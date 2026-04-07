@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import api from '../api/axios';
 
 // Logic helpers for time-based status
 const isPastShowtime = (showtime) => new Date(showtime) < new Date();
@@ -14,73 +15,35 @@ const canCancel = (showtime) => {
 const BookingHistory = () => {
     const navigate = useNavigate();
     
-    // MOCK DATA - Dates relative to now for testing logic
-    const now = new Date();
-    const mockBookingsData = [
-        {
-            _id: 'BK_001',
-            bookingCode: 'CINE8239',
-            status: 'confirmed',
-            movieTitle: 'Dune: Hành Tinh Cát - Phần 2',
-            cinemaName: 'CGV Vincom Center',
-            roomName: 'Premium 01',
-            showstartTime: new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString(), // 5 hours later (Upcoming)
-            tickets: [{ seatLabel: 'H12' }, { seatLabel: 'H13' }],
-            finalPrice: 240000,
-            qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CINE8239',
-            poster: 'https://image.tmdb.org/t/p/w500/8uS6B0Hpt60mS97v74pZ98S3Cc1.jpg'
-        },
-        {
-            _id: 'BK_002',
-            bookingCode: 'CINE1152',
-            status: 'confirmed',
-            movieTitle: 'Kung Fu Panda 4',
-            cinemaName: 'BHD Star Cineplex',
-            roomName: 'Hall 05',
-            showstartTime: new Date(now.getTime() + 1 * 60 * 60 * 1000).toISOString(), // 1 hour later (Expiring soon)
-            tickets: [{ seatLabel: 'C05' }],
-            finalPrice: 95000,
-            qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CINE1152',
-            poster: 'https://image.tmdb.org/t/p/w500/kDp1vUBiRSTiMpepD3zSYn4p6Ad.jpg'
-        },
-        {
-            _id: 'BK_003',
-            bookingCode: 'CINE9004',
-            status: 'confirmed',
-            movieTitle: 'Godzilla x Kong',
-            cinemaName: 'Lotte Cinema',
-            roomName: 'IMAX 01',
-            showstartTime: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday (Finished)
-            tickets: [{ seatLabel: 'G08' }, { seatLabel: 'G09' }],
-            finalPrice: 320000,
-            qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CINE9004',
-            poster: 'https://image.tmdb.org/t/p/w200/5mSOf8ID396R1OaN8Mh9o7879fP.jpg'
-        },
-        {
-            _id: 'BK_004',
-            bookingCode: 'CINE4412',
-            status: 'cancelled',
-            movieTitle: 'Lật Mặt 7',
-            cinemaName: 'CGV Landmark 81',
-            roomName: 'Gold Class',
-            showstartTime: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString(),
-            tickets: [{ seatLabel: 'B01' }],
-            finalPrice: 150000,
-            poster: 'https://image.tmdb.org/t/p/w200/kK8O93M3p3p333.jpg'
-        }
-    ];
-
-    const [bookings, setBookings] = useState(mockBookingsData);
+    const [bookings, setBookings] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [qrModal, setQrModal] = useState(null);
     const [cancelModal, setCancelModal] = useState(null);
 
+    useEffect(() => {
+        const fetchBookings = async () => {
+            try {
+                const res = await api.get('/bookings/my-bookings');
+                setBookings(res.data.data?.bookings || []);
+            } catch (error) {
+                console.error("Lỗi khi tải lịch sử:", error);
+                toast.error("Không thể tải lịch sử vé.");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchBookings();
+    }, []);
+
     // Dynamic filtering Logic
     const filteredBookings = useMemo(() => {
         return bookings.filter(b => {
-            const matchesSearch = b.movieTitle.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                b.bookingCode.toLowerCase().includes(searchQuery.toLowerCase());
+            const title = b.movieTitle || b.showtime?.movie?.title || '';
+            const code = b.bookingCode || '';
+            const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                code.toLowerCase().includes(searchQuery.toLowerCase());
             
             if (!matchesSearch) return false;
 
@@ -156,15 +119,25 @@ const BookingHistory = () => {
                     ))}
                 </div>
 
-                {filteredBookings.length === 0 ? (
+                {loading ? (
+                    <div className="bh-empty">
+                        <p>Đang tải danh sách vé...</p>
+                    </div>
+                ) : filteredBookings.length === 0 ? (
                     <div className="bh-empty">
                         <p>Không tìm thấy vé nào phù hợp.</p>
                     </div>
                 ) : (
                     <div className="bh-list">
                         {filteredBookings.map(b => {
-                            const isFinished = isPastShowtime(b.showstartTime);
-                            const cancellationAllowed = canCancel(b.showstartTime);
+                            const startTimeStr = b.showstartTime || (b.showtime ? b.showtime.startTime : null);
+                            const poster = b.poster || (b.showtime?.movie?.poster) || 'https://via.placeholder.com/150';
+                            const title = b.movieTitle || (b.showtime?.movie?.title) || 'Phim rạp';
+                            const cinema = b.cinemaName || (b.showtime?.room?.cinema?.name) || 'Rạp';
+                            const roomName = b.roomName || (b.showtime?.room?.name) || 'Phòng';
+
+                            const isFinished = isPastShowtime(startTimeStr);
+                            const cancellationAllowed = canCancel(startTimeStr);
                             let statusLabel = 'Đã đặt';
                             let statusColor = '#4ade80';
 
@@ -186,12 +159,12 @@ const BookingHistory = () => {
                                     </div>
 
                                     <div className="bh-card-info">
-                                        <div className="bh-movie-title">{b.movieTitle}</div>
+                                        <div className="bh-movie-title">{title}</div>
                                         <div className="bh-meta">
-                                            <span>📍 {b.cinemaName}</span>
-                                            <span>🎭 {b.roomName}</span>
-                                            <span>📅 {new Date(b.showstartTime).toLocaleString('vi-VN')}</span>
-                                            <span>💺 {b.tickets.map(t => t.seatLabel).join(', ')}</span>
+                                            <span>📍 {cinema}</span>
+                                            <span>🎭 {roomName}</span>
+                                            <span>📅 {new Date(startTimeStr).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - {new Date(startTimeStr).toLocaleDateString('vi-VN')}</span>
+                                            <span>💺 {b.tickets?.map(t => t.seatLabel).join(', ')}</span>
                                         </div>
                                         <div className="bh-code">MÃ VÉ: <strong>{b.bookingCode}</strong></div>
                                         <div className="bh-price-final">{b.finalPrice.toLocaleString()}đ</div>

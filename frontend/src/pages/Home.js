@@ -282,6 +282,10 @@ const Home = () => {
     limit: 12
   });
 
+  // Recommendations state
+  const [recommendedMovies, setRecommendedMovies] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+
   // Modal state
   const [modal, setModal] = useState(null); // 'cinemas' | 'contact' | 'rent' | 'news' | 'tickets'
 
@@ -298,10 +302,26 @@ const Home = () => {
     }
   }, [filters]);
 
+  const fetchRecommendations = useCallback(async () => {
+    if (!user) return;
+    setLoadingRecommendations(true);
+    try {
+      const response = await moviesApi.getRecommendations();
+      setRecommendedMovies(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  }, [user]);
+
   useEffect(() => {
-    const timer = setTimeout(() => { fetchMovies(); }, 500);
+    const timer = setTimeout(() => { 
+      fetchMovies(); 
+      if (user) fetchRecommendations();
+    }, 500);
     return () => clearTimeout(timer);
-  }, [fetchMovies]);
+  }, [fetchMovies, fetchRecommendations, user]);
 
   const handleLogout = async () => {
     await logout();
@@ -412,6 +432,72 @@ const Home = () => {
       <div className="cb-slider-wrapper">
         <HeroSlider />
       </div>
+
+      {/* ===== RECOMMENDED MOVIES SECTION ===== */}
+      <main className="cb-main" style={{ paddingBottom: '0' }}>
+        <div className="cb-section-header">
+          <div className="cb-section-line" />
+          <h2 className="cb-section-title" style={{ color: '#e50914' }}>
+            ✨ {user ? `CHÀO ${user.name.toUpperCase()}, ĐÂY LÀ PHIM DÀNH CHO BẠN` : 'PHIM DÀNH RIÊNG CHO BẠN'}
+          </h2>
+          <div className="cb-section-line" />
+        </div>
+
+        {user ? (
+          loadingRecommendations ? (
+            <div className="cb-loading">
+              <div className="cb-spinner" />
+              <p>Đang tải gợi ý...</p>
+            </div>
+          ) : recommendedMovies.length > 0 ? (
+            <div className="cb-recommendations-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              {recommendedMovies.filter(m => m.matchReason?.includes('Thịnh Hành')).length > 0 && (
+                <div className="cb-rec-subsection">
+                  <h3 style={{ color: '#facc15', marginBottom: '15px', fontSize: '1.2rem', paddingLeft: '10px', borderLeft: '3px solid #facc15' }}>🔥 CÁC PHIM ĐANG THỊNH HÀNH</h3>
+                  <div className="cb-movie-grid">
+                    {recommendedMovies.filter(m => m.matchReason?.includes('Thịnh Hành')).map((movie) => (
+                      <MovieCard key={`rec_${movie._id}`} movie={movie} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {recommendedMovies.filter(m => m.matchReason?.includes('Đúng Gu')).length > 0 && (
+                <div className="cb-rec-subsection">
+                  <h3 style={{ color: '#4ade80', marginBottom: '15px', fontSize: '1.2rem', paddingLeft: '10px', borderLeft: '3px solid #4ade80' }}>✨ TÌM THẤY VÌ ĐÚNG GU CỦA BẠN NHẤT</h3>
+                  <div className="cb-movie-grid">
+                    {recommendedMovies.filter(m => m.matchReason?.includes('Đúng Gu')).map((movie) => (
+                      <MovieCard key={`rec_${movie._id}`} movie={movie} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {recommendedMovies.filter(m => m.matchReason?.includes('Có thể')).length > 0 && (
+                <div className="cb-rec-subsection">
+                  <h3 style={{ color: '#a0a5bc', marginBottom: '15px', fontSize: '1.2rem', paddingLeft: '10px', borderLeft: '3px solid #a0a5bc' }}>💡 CÓ THỂ BẠN SẼ THÍCH</h3>
+                  <div className="cb-movie-grid">
+                    {recommendedMovies.filter(m => m.matchReason?.includes('Có thể')).map((movie) => (
+                      <MovieCard key={`rec_${movie._id}`} movie={movie} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="cb-no-movies">
+              <p>Chưa có phim gợi ý phù hợp cho bạn lúc này.</p>
+            </div>
+          )
+        ) : (
+          <div style={{ textAlign: 'center', padding: '2rem', color: '#ccc', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px', margin: '0 20px' }}>
+            <p style={{ fontSize: '1.2rem', marginBottom: '10px' }}>Bạn muốn biết phim nào hợp gu mình nhất?</p>
+            <p>
+              Vui lòng <strong style={{ color: '#e50914', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => navigate('/login')}>đăng nhập</strong> để khám phá danh sách phim được AI gợi ý dựa trên sở thích của bạn!
+            </p>
+          </div>
+        )}
+      </main>
 
       {/* ===== MOVIE SECTION ===== */}
       <main className="cb-main">
