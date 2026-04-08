@@ -1,4 +1,5 @@
 import PointHistory from '../models/PointHistory.js';
+import { ApiError } from '../utils/ApiError.js';
 
 export const updateMembership = (totalPoints) => {
   if (totalPoints >= 1000) return "Platinum";
@@ -28,7 +29,7 @@ export const earnPoints = async (user, amountSpent, description = "Earn points f
 
 export const redeemPoints = async (user, pointsToRedeem, description = "Redeem points") => {
   if ((user.points || 0) < pointsToRedeem) {
-    throw new Error("Không đủ điểm để đổi thưởng");
+    throw new ApiError(400, "Không đủ điểm để đổi thưởng");
   }
 
   user.points -= pointsToRedeem;

@@ -417,7 +417,7 @@ const Home = () => {
   const scrollTo = (ref) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const handlePromoClick = (key) => {
-    if (key === 'profile') navigate('/profile');
+    if (key === 'profile') navigate('/loyalty');
     else if (key === 'rent') setModal('rent');
     else if (key === 'news') setModal('news');
     else if (key === 'coming_soon') {
@@ -461,10 +461,10 @@ const Home = () => {
 
           {/* Desktop Nav */}
           <nav className="cb-nav" aria-label="Điều hướng chính">
-            <div className="cb-nav-link" onClick={() => { setFilters(f => ({ ...f, status: 'now_showing' })); scrollTo(movieSectionRef); }}>Phim</div>
-            <div className="cb-nav-link" onClick={() => setModal('cinemas')}>Hệ Thống Rạp</div>
-            <div className="cb-nav-link" onClick={() => navigate('/profile')}>Thành Viên</div>
-            <div className="cb-nav-link" onClick={() => scrollTo(eventSectionRef)}>Ưu Đãi</div>
+            <div className="cb-nav-link" onClick={() => { setFilters(f => ({ ...f, status: 'now_showing' })); scrollTo(movieSectionRef); }}>PHIM</div>
+            <div className="cb-nav-link" onClick={() => setModal('cinemas')}>HỆ THỐNG RẠP</div>
+            <div className="cb-nav-link" onClick={() => navigate('/loyalty')}>THÀNH VIÊN</div>
+            <div className="cb-nav-link" onClick={() => scrollTo(eventSectionRef)}>ƯU ĐÃI</div>
           </nav>
 
           {/* Actions */}

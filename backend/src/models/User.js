@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema({
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
   isBanned: { type: Boolean, default: false },
+  points: { type: Number, default: 0 },
+  membership: { type: String, enum: ['Bronze', 'Silver', 'Gold', 'Platinum'], default: 'Bronze' },
+  totalSpent: { type: Number, default: 0 },
+  tier: { type: String, default: 'Member' }
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {
