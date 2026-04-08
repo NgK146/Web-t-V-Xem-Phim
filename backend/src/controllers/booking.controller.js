@@ -348,7 +348,7 @@ export const getMyBookings = async (req, res, next) => {
         path: 'showtime',
         populate: [
           { path: 'movie', select: 'title poster genre duration' },
-          { path: 'room', populate: { path: 'cinema', select: 'name address' } }
+          { path: 'room', populate: { path: 'cinema', select: 'name address location' } }
         ]
       })
       .sort('-createdAt')
