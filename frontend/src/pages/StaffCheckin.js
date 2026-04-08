@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { useAuthStore } from '../store/authStore';
 import { lookupBooking, performCheckin, getTodayCheckins, serveFoods, getMyShiftReport } from '../api/checkin.api';
 import QRScanner from '../components/QRScanner';
+import { QRCode } from 'react-qrcode-logo';
 
 const StaffCheckin = () => {
   const { user, logout } = useAuthStore();
@@ -139,6 +140,10 @@ const StaffCheckin = () => {
       refunded:  { label: 'Hoàn tiền',    cls: 'sc-status-refunded',  icon: '💸' },
     };
     return map[status] || { label: status, cls: '', icon: '❓' };
+  };
+
+  const handlePrintTicket = () => {
+    window.print();
   };
 
   return (
@@ -359,6 +364,17 @@ const StaffCheckin = () => {
                   </button>
                 )}
 
+                {/* Print Ticket Button */}
+                {(booking.status === 'confirmed' || booking.checkedIn) && (
+                  <button
+                    className="sc-btn-print"
+                    onClick={handlePrintTicket}
+                    style={{ background: '#3b82f6', color: '#fff', padding: '12px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px', width: '100%', fontSize: '15px' }}
+                  >
+                    🖨️ In Vé Giấy
+                  </button>
+                )}
+
                 {booking.status !== 'confirmed' && !booking.checkedIn && (
                   <div className="sc-warning-msg">
                     ⚠️ Không thể check-in. Trạng thái vé: <strong>{getStatusInfo(booking.status).label}</strong>
@@ -537,6 +553,43 @@ const StaffCheckin = () => {
               <button className="sc-btn-cancel" onClick={() => setShowShiftReport(false)}>Quay Lại Làm Việc</button>
               <button className="sc-btn-confirm" onClick={handleConfirmLogout}>🚪 Xác Nhận Đăng Xuất</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Printable Ticket Section (Hidden on screen) */}
+      {booking && (
+        <div className="print-ticket">
+          <div className="print-header">
+            <h2>CINEBOOKING</h2>
+            <p>Vé Xem Phim (E-Ticket)</p>
+          </div>
+          <div className="print-body">
+            <p className="print-item"><strong>Phim:</strong> {booking.movieTitle}</p>
+            <p className="print-item"><strong>Khách hàng:</strong> {booking.user?.name || 'Vãng lai'} ({booking.user?.phone || 'No phone'})</p>
+            <p className="print-item"><strong>Suất chiếu:</strong> <br/>{formatDate(booking.showstartTime)}</p>
+            <p className="print-item"><strong>Rạp:</strong> {booking.cinemaName}</p>
+            <p className="print-item"><strong>Phòng chiếu:</strong> {booking.roomName}</p>
+            <p className="print-item"><strong>Ghế:</strong> {booking.tickets?.map(t => t.seatLabel).join(', ')}</p>
+            {booking.foods?.length > 0 && (
+              <div className="print-item print-foods">
+                <strong>Bắp Nước:</strong>
+                <ul>
+                  {booking.foods.map((f, i) => (
+                    <li key={i}>{f.name} x{f.quantity}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="print-item"><strong>Tổng tiền:</strong> {formatPrice(booking.finalPrice)}</p>
+          </div>
+          <div className="print-qr">
+            <QRCode value={booking.bookingCode} size={150} />
+            <p className="print-code">Mã vé: {booking.bookingCode}</p>
+          </div>
+          <div className="print-footer">
+            <p>Vui lòng đến đúng giờ!</p>
+            <p>Đã in: {formatDate(new Date())}</p>
           </div>
         </div>
       )}
