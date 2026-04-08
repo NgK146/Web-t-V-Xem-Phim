@@ -8,7 +8,7 @@ const api = axios.create({
 
 // Request interceptor: gắn token
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+  const token = sessionStorage.getItem('accessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -23,15 +23,15 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !original._retry && !original.url.includes('/login') && !original.url.includes('/refresh-token')) {
       original._retry = true;
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = sessionStorage.getItem('refreshToken');
         const { data } = await api.post('/auth/refresh-token', { refreshToken });
-        localStorage.setItem('accessToken',  data.data.accessToken);
-        localStorage.setItem('refreshToken', data.data.refreshToken);
+        sessionStorage.setItem('accessToken',  data.data.accessToken);
+        sessionStorage.setItem('refreshToken', data.data.refreshToken);
         original.headers.Authorization = `Bearer ${data.data.accessToken}`;
         return api(original);
       } catch {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('refreshToken');
         window.location.href = '/login';
       }
     }

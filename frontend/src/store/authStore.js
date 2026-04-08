@@ -10,8 +10,8 @@ export const useAuthStore = create(
 
       /** @param {{ user: object, accessToken: string, refreshToken: string }} data */
       setAuth: (data) => {
-        localStorage.setItem('accessToken',  data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
+        sessionStorage.setItem('accessToken',  data.accessToken);
+        sessionStorage.setItem('refreshToken', data.refreshToken);
         set({ user: data.user, token: data.accessToken });
       },
 
@@ -24,14 +24,14 @@ export const useAuthStore = create(
 
       logout: async () => {
         await api.post('/auth/logout').catch(() => {});
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('refreshToken');
         set({ user: null, token: null });
       },
     }),
     {
       name:       'auth-storage',
-      storage:    createJSONStorage(() => localStorage), // ✅ Đổi sang localStorage để persist khi đóng tab
+      storage:    createJSONStorage(() => sessionStorage), // ✅ Dùng sessionStorage để đăng nhập nhiều tài khoản trên nhiều tab
       partialize: (s) => ({ user: s.user, token: s.token }),
     }
   )
