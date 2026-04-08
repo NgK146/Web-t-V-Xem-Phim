@@ -338,34 +338,34 @@ const Home = () => {
 
   const ICON_NAV = [
     {
-      icon: '🏛️', label: 'Hệ Thống Rạp',
+      icon: <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>, label: 'Hệ Thống Rạp',
       action: () => setModal('cinemas')
     },
     {
-      icon: '🎬', label: 'Phim Đang Chiếu',
+      icon: <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>, label: 'Phim Đang Chiếu',
       action: () => {
         setFilters(f => ({ ...f, status: 'now_showing' }));
         scrollTo(movieSectionRef);
       }
     },
     {
-      icon: '⭐', label: 'Đặc Trưng CB',
+      icon: <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>, label: 'Đặc Trưng CB',
       action: () => scrollTo(eventSectionRef)
     },
     {
-      icon: '🎭', label: 'Thuê Rạp',
+      icon: <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>, label: 'Thuê Rạp',
       action: () => setModal('rent')
     },
     {
-      icon: '📞', label: 'Liên Hệ CB',
+      icon: <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>, label: 'Liên Hệ CB',
       action: () => setModal('contact')
     },
     {
-      icon: '📰', label: 'Tin Mới',
+      icon: <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg>, label: 'Tin Mới',
       action: () => setModal('news')
     },
     {
-      icon: '👤', label: 'Đăng Ký Khách Hàng',
+      icon: <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5c-1.1 0-2 .9-2 2v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>, label: 'Đăng Ký Mới',
       action: () => navigate('/register')
     },
   ];
@@ -381,23 +381,6 @@ const Home = () => {
 
       {/* ===== HEADER ===== */}
       <header className="cb-header">
-        <div className="cb-header-top">
-          <div className="cb-header-top-links">
-            <span style={{ cursor: 'pointer' }} onClick={() => setModal('news')}>TIN MỚI & ƯU ĐÃI</span>
-            {user && <span style={{ cursor: 'pointer' }} onClick={() => navigate('/profile')}>HỒ SƠ & HẠNG THẺ</span>}
-            {user && <span style={{ cursor: 'pointer' }} onClick={() => navigate('/my-bookings')}>🎟️ VÉ CỦA TÔI</span>}
-            {user ? (
-              <span onClick={handleLogout} style={{ cursor: 'pointer' }}>ĐĂNG XUẤT</span>
-            ) : (
-              <span onClick={() => navigate('/login')} style={{ cursor: 'pointer' }}>ĐĂNG NHẬP / ĐĂNG KÝ</span>
-            )}
-          </div>
-          <div className="cb-header-top-lang">
-            <span className="cb-lang-active">VN</span>
-            <span className="cb-lang">EN</span>
-          </div>
-        </div>
-
         <div className="cb-header-main">
           <div className="cb-logo" onClick={() => navigate('/')}>
             CINEBOOKING<span className="cb-logo-star">*</span>
@@ -410,18 +393,32 @@ const Home = () => {
             <div className="cb-nav-link" onClick={() => scrollTo(eventSectionRef)}>TIỆN ÍCH</div>
           </nav>
 
-          <button className="cb-buy-btn" onClick={() => scrollTo(movieSectionRef)}>
-            MUA VÉ NGAY
-          </button>
+          <div className="cb-header-right">
+            {user ? (
+              <>
+                <span className="cb-header-greeting" onClick={() => navigate('/profile')}>
+                  Chào, {user.name}
+                </span>
+                <span className="cb-header-logout" onClick={handleLogout} style={{ cursor: 'pointer', margin: '0 16px', color: 'var(--cb-text-muted)' }} title="Đăng xuất">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--cb-red)'} onMouseLeave={(e) => e.currentTarget.style.color = 'inherit'}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                </span>
+              </>
+            ) : (
+              <span className="cb-header-login" onClick={() => navigate('/login')} style={{ cursor: 'pointer', margin: '0 16px', fontSize: '14px', fontWeight: 'bold', color: 'var(--cb-text-muted)', transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#fff'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--cb-text-muted)'}>
+                ĐĂNG NHẬP
+              </span>
+            )}
+            <button className="cb-buy-btn" onClick={() => scrollTo(movieSectionRef)}>
+              MUA VÉ
+            </button>
+          </div>
         </div>
-
-        <div className="cb-header-divider" />
       </header>
 
       {/* ===== ICON NAV ===== */}
       <div className="cb-icon-nav">
         {ICON_NAV.map((item, i) => (
-          <div key={i} className="cb-icon-item" onClick={item.action} style={{ cursor: 'pointer' }}>
+          <div key={i} className="cb-icon-item" onClick={item.action}>
             <div className="cb-icon-circle">{item.icon}</div>
             <span className="cb-icon-label">{item.label}</span>
           </div>
@@ -437,8 +434,8 @@ const Home = () => {
       <main className="cb-main" style={{ paddingBottom: '0' }}>
         <div className="cb-section-header">
           <div className="cb-section-line" />
-          <h2 className="cb-section-title" style={{ color: '#e50914' }}>
-            ✨ {user ? `CHÀO ${user.name.toUpperCase()}, ĐÂY LÀ PHIM DÀNH CHO BẠN` : 'PHIM DÀNH RIÊNG CHO BẠN'}
+          <h2 className="cb-section-title" style={{ color: '#E50914' }}>
+            {user ? `✨ PHIM GỢI Ý` : '✨ PHIM DÀNH RIÊNG'}
           </h2>
           <div className="cb-section-line" />
         </div>
@@ -606,6 +603,26 @@ const Home = () => {
           <p>COPYRIGHT 2025 CINEBOOKING VIETNAM CO., LTD. ALL RIGHTS RESERVED</p>
         </div>
       </footer>
+
+      {/* ===== BOTTOM NAVIGATION (MOBILE) ===== */}
+      <nav className="cb-bottom-nav">
+        <div className="cb-bottom-nav-item" onClick={() => window.scrollTo(0, 0)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          <span className="cb-bottom-nav-label">Trang chủ</span>
+        </div>
+        <div className="cb-bottom-nav-item" onClick={() => { setFilters(f => ({ ...f, status: 'now_showing' })); scrollTo(movieSectionRef); }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
+          <span className="cb-bottom-nav-label">Phim</span>
+        </div>
+        <div className="cb-bottom-nav-item" onClick={() => setModal('cinemas')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          <span className="cb-bottom-nav-label">Rạp</span>
+        </div>
+        <div className="cb-bottom-nav-item" onClick={() => user ? navigate('/profile') : navigate('/login')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span className="cb-bottom-nav-label">Hồ sơ</span>
+        </div>
+      </nav>
     </div>
   );
 };
