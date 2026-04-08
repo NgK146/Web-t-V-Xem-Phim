@@ -12,7 +12,7 @@ const generateVoucherCode = () => {
 // GET /api/loyalty/me
 export const getMyLoyalty = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id).select("name email points membership");
+    const user = await User.findById(req.user._id).select("name email points totalAccumulatedPoints membership");
     const history = await PointHistory.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .limit(20);
@@ -20,10 +20,20 @@ export const getMyLoyalty = async (req, res, next) => {
     const availableVouchers = await Discount.find({
       createdFor: req.user._id,
       isActive: true,
-      endDate: { $gte: new Date() }
+      endDate: { $gte: new Date() },
+      $expr: { $lt: ['$usedCount', '$usageLimit'] }
     }).sort({ createdAt: -1 });
 
-    res.status(200).json(new ApiResponse(200, { user, history, availableVouchers }));
+    const usedVouchers = await Discount.find({
+      createdFor: req.user._id,
+      $or: [
+        { isActive: false },
+        { endDate: { $lt: new Date() } },
+        { $expr: { $gte: ['$usedCount', '$usageLimit'] } }
+      ]
+    }).sort({ createdAt: -1 });
+
+    res.status(200).json(new ApiResponse(200, { user, history, availableVouchers, usedVouchers }));
   } catch (error) {
     next(error);
   }

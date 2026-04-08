@@ -14,7 +14,15 @@ export const earnPoints = async (user, amountSpent, description = "Earn points f
   if (earned <= 0) return user;
 
   user.points = (user.points || 0) + earned;
-  user.membership = updateMembership(user.points);
+  user.totalAccumulatedPoints = (user.totalAccumulatedPoints || 0) + earned;
+  user.membership = updateMembership(user.totalAccumulatedPoints);
+  
+  // Update Profile metrics
+  user.totalSpent = (user.totalSpent || 0) + amountSpent;
+  if (user.totalSpent >= 5000000) user.tier = 'VVIP Gold';
+  else if (user.totalSpent >= 1000000) user.tier = 'VIP Silver';
+  else user.tier = 'Member';
+
   await user.save();
 
   await PointHistory.create({
@@ -33,7 +41,6 @@ export const redeemPoints = async (user, pointsToRedeem, description = "Redeem p
   }
 
   user.points -= pointsToRedeem;
-  user.membership = updateMembership(user.points);
   await user.save();
 
   await PointHistory.create({
