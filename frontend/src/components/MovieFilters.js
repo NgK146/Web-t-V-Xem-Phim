@@ -1,5 +1,13 @@
 import React from 'react';
 
+const SearchIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
 const MovieFilters = ({ filters, onFilterChange }) => {
   const genres = [
     'Hành động', 'Hài hước', 'Hoạt hình', 'Kinh dị', 'Phiêu lưu', 'Viễn tưởng'
@@ -16,64 +24,47 @@ const MovieFilters = ({ filters, onFilterChange }) => {
   };
 
   return (
-    <div className="movie-filters-cgv">
-      <div className="movie-tabs">
-        <button 
-          className={`tab-btn ${filters.status === 'today' ? 'active' : ''}`}
-          onClick={() => handleStatusChange('today')}
-        >
-          Phim Chiếu Hôm Nay
-        </button>
-        <button 
-          className={`tab-btn ${filters.status === 'now_showing' ? 'active' : ''}`}
-          onClick={() => handleStatusChange('now_showing')}
-        >
-          Phim Đang Chiếu
-        </button>
-        <button 
-          className={`tab-btn ${filters.status === 'coming_soon' ? 'active' : ''}`}
-          onClick={() => handleStatusChange('coming_soon')}
-        >
-          Phim Sắp Chiếu
-        </button>
+    <div className="mf-wrap">
+      {/* Status Tabs */}
+      <div className="mf-tabs" role="tablist" aria-label="Lọc phim theo trạng thái">
+        {[
+          { key: 'today', label: 'Chiếu Hôm Nay' },
+          { key: 'now_showing', label: 'Đang Chiếu' },
+          { key: 'coming_soon', label: 'Sắp Chiếu' },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            role="tab"
+            aria-selected={filters.status === tab.key}
+            className={`mf-tab${filters.status === tab.key ? ' active' : ''}`}
+            onClick={() => handleStatusChange(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        gap: '15px', 
-        marginBottom: '3rem',
-        flexWrap: 'wrap'
-      }}>
-        <input
-          type="text"
-          name="q"
-          placeholder="Tìm tên phim..."
-          value={filters.q || ''}
-          onChange={handleChange}
-          className="filter-input"
-          style={{ 
-            width: '100%', 
-            maxWidth: '300px', 
-            borderRadius: '25px', 
-            padding: '10px 20px',
-            border: '2px solid #ddd'
-          }}
-        />
-        
+      {/* Filters Row */}
+      <div className="mf-filters">
+        <div className="mf-search-wrap">
+          <SearchIcon />
+          <input
+            type="text"
+            name="q"
+            placeholder="Tìm tên phim..."
+            value={filters.q || ''}
+            onChange={handleChange}
+            className="mf-search"
+            aria-label="Tìm kiếm phim"
+          />
+        </div>
+
         <select
           name="genre"
           value={filters.genre || ''}
           onChange={handleChange}
-          className="filter-select-cgv"
-          style={{
-            padding: '10px 20px',
-            borderRadius: '25px',
-            border: '2px solid #ddd',
-            background: '#fff',
-            cursor: 'pointer',
-            minWidth: '150px'
-          }}
+          className="mf-select"
+          aria-label="Lọc theo thể loại"
         >
           <option value="">Tất cả thể loại</option>
           {genres.map(g => <option key={g} value={g}>{g}</option>)}
@@ -83,15 +74,8 @@ const MovieFilters = ({ filters, onFilterChange }) => {
           name="rated"
           value={filters.rated || ''}
           onChange={handleChange}
-          className="filter-select-cgv"
-          style={{
-            padding: '10px 20px',
-            borderRadius: '25px',
-            border: '2px solid #ddd',
-            background: '#fff',
-            cursor: 'pointer',
-            minWidth: '150px'
-          }}
+          className="mf-select"
+          aria-label="Lọc theo độ tuổi"
         >
           <option value="">Tất cả độ tuổi</option>
           {ratings.map(r => <option key={r} value={r}>{r}</option>)}
