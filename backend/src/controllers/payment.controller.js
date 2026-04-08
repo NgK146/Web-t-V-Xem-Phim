@@ -56,17 +56,30 @@ export const createPayOSPayment = async (req, res, next) => {
 export const payOSWebhook = async (req, res, next) => {
   try {
     const webhookData = verifyPayOSWebhookData(req.body);
-    
-    if (webhookData.code === "00" || webhookData.success === true) {
-      const orderCode = webhookData.data?.orderCode;
-      if (orderCode) {
-        await Booking.findOneAndUpdate(
-          { orderCode: Number(orderCode) },
-          { status: 'confirmed', paymentMethod: 'payos', paidAt: new Date() }
-        );
+
+    if (webhookData.code === '00' || webhookData.success) {
+      const orderCode = webhookData.data.orderCode;
+      
+      const booking = await Booking.findOne({ orderCode: Number(orderCode) });
+      if (booking && booking.status === 'pending') {
+        booking.status = 'confirmed';
+        booking.paymentMethod = 'payos';
+        booking.paidAt = new Date();
+        await booking.save();
+        
+        console.log(`[PayOS Webhook] Bắt được thanh toán thành công: ${orderCode}`);
+
+        // Broadcast to Admin Dashboard safely
+        const io = req.app.get('io');
+        if (io) {
+          io.emit('admin_new_booking', {
+            amount: booking.totalPrice,
+            ticketCount: booking.seats.length,
+            orderCode: booking.orderCode,
+          });
+        }
       }
     }
-    
     res.json({ success: true, message: 'Webhook received' });
   } catch (err) {
     console.error('PayOS Webhook error:', err);
@@ -87,12 +100,29 @@ export const checkPaymentStatus = async (req, res, next) => {
     const paymentInfo = await getPayOSPaymentStatus(orderCode);
     
     if (paymentInfo && paymentInfo.status === 'PAID') {
-      const booking = await Booking.findOneAndUpdate(
-        { orderCode: Number(orderCode) },
-        { status: 'confirmed', paymentMethod: 'payos', paidAt: new Date() },
-        { new: true }
-      );
-      res.json(new ApiResponse(200, { status: 'PAID', booking }, 'Thanh toán đã hoàn tất'));
+      const booking = await Booking.findOne({ orderCode: Number(orderCode) });
+      if (booking) {
+        const wasPending = booking.status === 'pending';
+        if (wasPending) {
+          booking.status = 'confirmed';
+          booking.paymentMethod = 'payos';
+          booking.paidAt = new Date();
+          await booking.save();
+          
+          // Broadcast to Admin Dashboard safely
+          const io = req.app.get('io');
+          if (io) {
+            io.emit('admin_new_booking', {
+              amount: booking.totalPrice,
+              ticketCount: booking.seats.length,
+              orderCode: booking.orderCode,
+            });
+          }
+        }
+        res.json(new ApiResponse(200, { status: 'PAID', booking }, 'Thanh toán đã hoàn tất'));
+      } else {
+        res.json(new ApiResponse(200, { status: 'PENDING' }, 'Không tìm thấy vé'));
+      }
     } else {
       res.json(new ApiResponse(200, { status: paymentInfo?.status || 'PENDING' }, 'Đang chờ xử lý'));
     }

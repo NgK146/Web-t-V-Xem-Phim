@@ -684,7 +684,7 @@ body {
   letter-spacing: 0.8px;
   color: var(--cb-text-muted);
   cursor: pointer;
-  font-family: 'Oswald', Tahoma, sans-serif;
+  font-family: 'Inter', 'Noto Sans', sans-serif;
   transition: color 0.2s;
 }
 

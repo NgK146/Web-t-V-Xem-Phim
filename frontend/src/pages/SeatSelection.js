@@ -476,6 +476,9 @@ const SeatSelection = () => {
 
         <div className="ss-checkout-right">
           <div className="ss-checkout-price-wrap">
+            <div style={{ color: '#facc15', fontSize: '11px', marginBottom: '6px', fontWeight: '600', textAlign: 'right', fontStyle: 'italic' }}>
+              ⚠️ Lưu ý: Tuyệt đối không hỗ trợ hoàn hoặc hủy vé!
+            </div>
             {isOrphanState && (
               <div style={{ color: '#f87171', fontSize: '12px', marginBottom: '4px', fontWeight: 'bold' }}>
                 * Không được để trống 1 ghế kẹp giữa

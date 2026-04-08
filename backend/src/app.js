@@ -29,6 +29,9 @@ export const io = new Server(httpServer, {
   cors: { origin: process.env.CLIENT_URL, methods: ['GET', 'POST'], credentials: true },
 });
 
+// Bind io to app for controllers to access without cyclic dependencies
+app.set('io', io);
+
 // Middlewares
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 app.use(helmet({
