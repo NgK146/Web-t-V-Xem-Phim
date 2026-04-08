@@ -17,6 +17,8 @@ import reviewRoutes from './routes/review.routes.js';
 import discountRoutes from './routes/discount.routes.js';
 import reportRoutes from './routes/report.routes.js';
 import foodRoutes from './routes/food.routes.js';
+import loyaltyRoutes from './routes/loyalty.routes.js';
+import aiChatRoutes from './routes/aiChat.routes.js';
 import { initSeatSocket } from './sockets/seat.socket.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
@@ -49,6 +51,8 @@ app.use('/api/reviews',   reviewRoutes);
 app.use('/api/discounts', discountRoutes);
 app.use('/api/reports',   reportRoutes);
 app.use('/api/foods',     foodRoutes);
+app.use('/api/loyalty',   loyaltyRoutes);
+app.use('/api/ai',        aiChatRoutes);
 
 // Health check
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
