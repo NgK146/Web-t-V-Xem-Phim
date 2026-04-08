@@ -1,10 +1,39 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './StaffCheckin.css';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../store/authStore';
 import { lookupBooking, performCheckin, getTodayCheckins, serveFoods, getMyShiftReport } from '../api/checkin.api';
 import QRScanner from '../components/QRScanner';
 import { QRCode } from 'react-qrcode-logo';
+import ErrorBoundary from '../components/ErrorBoundary';
+
+/** Fallback nhẹ dùng trong modal QR scanner khi camera bị chặn */
+const QRScannerFallback = ({ onClose }) => (
+  <div style={{ padding: '24px', textAlign: 'center', color: '#fff' }}>
+    <div style={{ fontSize: '48px', marginBottom: '12px' }}>📷</div>
+    <h3 style={{ margin: '0 0 8px', color: '#ff4d4d' }}>Không thể mở Camera</h3>
+    <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', marginBottom: '20px' }}>
+      Trình duyệt bị chặn quyền camera. Vui lòng cấp quyền trong cài đặt trình duyệt rồi thử lại,
+      <br />
+      hoặc nhập mã vé thủ công vào ô tìm kiếm bên dưới.
+    </p>
+    <button
+      onClick={onClose}
+      style={{
+        background: 'rgba(255,255,255,0.15)',
+        border: '1px solid rgba(255,255,255,0.2)',
+        color: '#fff',
+        padding: '10px 22px',
+        borderRadius: '20px',
+        cursor: 'pointer',
+        fontSize: '14px',
+      }}
+    >
+      ✕ Đóng
+    </button>
+  </div>
+);
 
 const StaffCheckin = () => {
   const { user, logout } = useAuthStore();
@@ -21,30 +50,38 @@ const StaffCheckin = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [showShiftReport, setShowShiftReport] = useState(false);
   const [shiftData, setShiftData] = useState(null);
-  
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    setBookingCode('');
-    setBooking(null);
-    setShowScanner(false);
-  };
+  const [alreadyCheckedInAlert, setAlreadyCheckedInAlert] = useState(null);
 
+  const scanProcessing = useRef(false);
+
+  // ─── Fetch today's checkins ──────────────────────────────────────────────────
   const fetchTodayCheckins = useCallback(async () => {
     try {
       const res = await getTodayCheckins();
       setTodayCheckins(res.data.data.checkins || []);
       setStats(res.data.data.stats || { totalBookings: 0, checkedInCount: 0, notCheckedInCount: 0 });
     } catch (err) {
-      // Silent fail for background fetch
+      // Silent fail for background refresh
     }
   }, []);
 
   useEffect(() => {
     fetchTodayCheckins();
-    const interval = setInterval(fetchTodayCheckins, 30000); // Refresh every 30s
+    const interval = setInterval(fetchTodayCheckins, 30000);
     return () => clearInterval(interval);
   }, [fetchTodayCheckins]);
 
+  // ─── Tab change ──────────────────────────────────────────────────────────────
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setBookingCode('');
+    setBooking(null);
+    setShowScanner(false);
+    setAlreadyCheckedInAlert(null);
+    if (tab === 'today') fetchTodayCheckins();
+  };
+
+  // ─── Manual lookup ───────────────────────────────────────────────────────────
   const handleLookup = async (e) => {
     e.preventDefault();
     if (!bookingCode.trim()) {
@@ -53,9 +90,15 @@ const StaffCheckin = () => {
     }
     setLoading(true);
     setBooking(null);
+    setAlreadyCheckedInAlert(null);
     try {
       const res = await lookupBooking(bookingCode.trim());
-      setBooking(res.data.data);
+      const data = res.data.data;
+      if (data.checkedIn) {
+        setAlreadyCheckedInAlert(data);
+      } else {
+        setBooking(data);
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không tìm thấy vé với mã này');
     } finally {
@@ -63,25 +106,41 @@ const StaffCheckin = () => {
     }
   };
 
+  // ─── QR scan ─────────────────────────────────────────────────────────────────
   const handleScanSuccess = useCallback((decodedText) => {
-    // Tự động điền mã và đóng scanner
+    if (scanProcessing.current) return;
+    scanProcessing.current = true;
+
     setBookingCode(decodedText.toUpperCase());
     setShowScanner(false);
-    toast.success('Đã quét mã QR thành công!');
-    
-    // Tự động trigger tìm kiếm
     setLoading(true);
     setBooking(null);
+    setAlreadyCheckedInAlert(null);
+
     lookupBooking(decodedText.trim().toUpperCase())
-      .then(res => setBooking(res.data.data))
-      .catch(err => toast.error(err.response?.data?.message || 'Không tìm thấy vé với mã quét được'))
-      .finally(() => setLoading(false));
+      .then((res) => {
+        const data = res.data.data;
+        if (data.checkedIn) {
+          setAlreadyCheckedInAlert(data);
+        } else {
+          toast.success('Đã quét mã QR thành công!');
+          setBooking(data);
+        }
+      })
+      .catch((err) =>
+        toast.error(err.response?.data?.message || 'Không tìm thấy vé với mã quét được')
+      )
+      .finally(() => {
+        setLoading(false);
+        setTimeout(() => { scanProcessing.current = false; }, 2000);
+      });
   }, []);
 
-  const handleScanFailure = useCallback((error) => {
-    // Bỏ qua lỗi báo không tìm thấy mã
+  const handleScanFailure = useCallback(() => {
+    // html5-qrcode gọi liên tục khi chưa thấy QR — bỏ qua
   }, []);
 
+  // ─── Check-in ────────────────────────────────────────────────────────────────
   const handleCheckin = async () => {
     if (!booking) return;
     setCheckinLoading(true);
@@ -89,7 +148,7 @@ const StaffCheckin = () => {
       const res = await performCheckin(booking._id);
       setBooking(res.data.data);
       toast.success('✅ Check-in thành công!');
-      fetchTodayCheckins();
+      await fetchTodayCheckins();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Lỗi khi check-in');
     } finally {
@@ -97,6 +156,7 @@ const StaffCheckin = () => {
     }
   };
 
+  // ─── Serve F&B ───────────────────────────────────────────────────────────────
   const handleServeFoods = async () => {
     if (!booking) return;
     setFnbLoading(true);
@@ -111,6 +171,7 @@ const StaffCheckin = () => {
     }
   };
 
+  // ─── Logout / Shift report ───────────────────────────────────────────────────
   const handleLogoutClick = async () => {
     try {
       const res = await getMyShiftReport();
@@ -118,7 +179,6 @@ const StaffCheckin = () => {
       setShowShiftReport(true);
     } catch (err) {
       toast.error('Lỗi khi lấy báo cáo ca làm việc');
-      // Lỗi thì vẫn cho đăng xuất
       await logout();
       navigate('/login');
     }
@@ -129,31 +189,90 @@ const StaffCheckin = () => {
     navigate('/login');
   };
 
-  const formatDate = (d) => d ? new Date(d).toLocaleString('vi-VN') : '—';
-  const formatPrice = (p) => p ? p.toLocaleString('vi-VN') + ' ₫' : '—';
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+  const formatDate = (d) => (d ? new Date(d).toLocaleString('vi-VN') : '—');
+  const formatPrice = (p) => (p ? p.toLocaleString('vi-VN') + ' ₫' : '—');
 
   const getStatusInfo = (status) => {
     const map = {
       confirmed: { label: 'Đã xác nhận', cls: 'sc-status-confirmed', icon: '✅' },
       pending:   { label: 'Chờ xử lý',   cls: 'sc-status-pending',   icon: '⏳' },
       cancelled: { label: 'Đã huỷ',      cls: 'sc-status-cancelled', icon: '❌' },
-      refunded:  { label: 'Hoàn tiền',    cls: 'sc-status-refunded',  icon: '💸' },
+      refunded:  { label: 'Hoàn tiền',   cls: 'sc-status-refunded',  icon: '💸' },
     };
     return map[status] || { label: status, cls: '', icon: '❓' };
   };
 
-  const handlePrintTicket = () => {
-    window.print();
-  };
+  const handlePrintTicket = () => window.print();
 
+  // ─── Already-checked-in warning card (shared) ────────────────────────────────
+  const AlreadyCheckedInCard = () =>
+    alreadyCheckedInAlert ? (
+      <div
+        style={{
+          background: 'linear-gradient(135deg, rgba(239,68,68,0.1), rgba(185,28,28,0.2))',
+          border: '1px solid rgba(239,68,68,0.4)',
+          borderRadius: '16px',
+          padding: '24px 30px',
+          marginTop: '30px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '24px',
+          boxShadow: '0 10px 30px rgba(239,68,68,0.15)',
+          animation: 'fadeIn 0.3s ease-out',
+        }}
+      >
+        <div style={{ fontSize: '48px', lineHeight: 1 }}>⛔</div>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ color: '#fca5a5', margin: '0 0 8px', fontSize: '20px' }}>Vé Đã Được Sử Dụng</h3>
+          <p style={{ color: '#fff', margin: '0 0 16px', fontSize: '15px' }}>
+            Mã vé{' '}
+            <strong style={{ color: '#fecaca', letterSpacing: '1px' }}>
+              {alreadyCheckedInAlert.bookingCode}
+            </strong>{' '}
+            không hợp lệ vì đã được check-in vào hệ thống trước đó.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px 16px', borderRadius: '8px' }}>
+              <div style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '4px' }}>⏰ Thời gian check-in:</div>
+              <div style={{ color: '#e5e7eb', fontWeight: '500', fontSize: '14px' }}>
+                {formatDate(alreadyCheckedInAlert.checkedInAt)}
+              </div>
+            </div>
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px 16px', borderRadius: '8px' }}>
+              <div style={{ color: '#9ca3af', fontSize: '13px', marginBottom: '4px' }}>👤 Nhân viên thao tác:</div>
+              <div style={{ color: '#e5e7eb', fontWeight: '500', fontSize: '14px' }}>
+                {alreadyCheckedInAlert.checkedInBy?.name || 'Không rõ'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  // ─── QR Scanner modal ────────────────────────────────────────────────────────
+  const ScannerModal = () =>
+    showScanner ? (
+      <div className="sc-scanner-modal">
+        <button className="sc-scanner-close" onClick={() => setShowScanner(false)}>✕</button>
+        <h3 style={{ color: '#fff', marginTop: 0 }}>Đưa mã QR vào khung hình</h3>
+        <ErrorBoundary fallback={<QRScannerFallback onClose={() => setShowScanner(false)} />}>
+          <QRScanner onScanSuccess={handleScanSuccess} onScanFailure={handleScanFailure} />
+        </ErrorBoundary>
+      </div>
+    ) : null;
+
+  // ════════════════════════════════════════════════════════════════════════════
   return (
     <div className="sc-wrapper">
-      {/* Sidebar */}
+
+      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside className="sc-sidebar">
         <div className="sc-logo">
           <span className="sc-logo-icon">🎬</span>
           <span>CineBooking</span>
         </div>
+
         <div className="sc-staff-badge">
           <div className="sc-avatar">{user?.name?.charAt(0).toUpperCase()}</div>
           <div>
@@ -163,6 +282,7 @@ const StaffCheckin = () => {
             </div>
           </div>
         </div>
+
         <nav className="sc-nav">
           <button
             className={`sc-nav-item ${activeTab === 'lookup' ? 'active' : ''}`}
@@ -183,6 +303,7 @@ const StaffCheckin = () => {
             <span>📋</span> Check-in Hôm Nay
           </button>
         </nav>
+
         <div className="sc-sidebar-footer">
           {user?.role === 'admin' && (
             <button className="sc-nav-item" onClick={() => navigate('/admin')}>
@@ -198,8 +319,9 @@ const StaffCheckin = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* ── Main Content ────────────────────────────────────────────────────── */}
       <main className="sc-main">
+
         {/* Stats Bar */}
         <div className="sc-stats-bar">
           <div className="sc-stat-item">
@@ -227,18 +349,20 @@ const StaffCheckin = () => {
             <div className="sc-stat-icon sc-stat-rate">📊</div>
             <div>
               <div className="sc-stat-value">
-                {stats.totalBookings > 0 ? Math.round((stats.checkedInCount / stats.totalBookings) * 100) : 0}%
+                {stats.totalBookings > 0
+                  ? Math.round((stats.checkedInCount / stats.totalBookings) * 100)
+                  : 0}%
               </div>
               <div className="sc-stat-label">Tỷ lệ check-in</div>
             </div>
           </div>
         </div>
 
-        {/* Lookup Tab */}
+        {/* ── Tab: Tra Cứu & Check-in ──────────────────────────────────────── */}
         {activeTab === 'lookup' && (
           <div className="sc-content">
             <div className="sc-header">
-              <h1 className="sc-title">🔍 Tra Cứu & Check-in Vé</h1>
+              <h1 className="sc-title">🔍 Tra Cứu &amp; Check-in Vé</h1>
               <p className="sc-subtitle">Nhập mã đặt vé để tra cứu và thực hiện check-in cho khách hàng</p>
             </div>
 
@@ -255,26 +379,21 @@ const StaffCheckin = () => {
                   autoFocus
                 />
                 <button type="submit" className="sc-search-btn" disabled={loading}>
-                  {loading ? (
-                    <span className="sc-spinner"></span>
-                  ) : (
-                    <>🔍 Tra Cứu</>
-                  )}
+                  {loading ? <span className="sc-spinner" /> : <>🔍 Tra Cứu</>}
                 </button>
-                <button type="button" className="sc-search-btn" style={{ background: '#10b981' }} onClick={() => setShowScanner(true)}>
+                <button
+                  type="button"
+                  className="sc-search-btn"
+                  style={{ background: '#10b981' }}
+                  onClick={() => setShowScanner(true)}
+                >
                   📷 Quét QR
                 </button>
               </div>
             </form>
 
-            {/* QR Scanner */}
-            {showScanner && (
-              <div className="sc-scanner-modal">
-                <button className="sc-scanner-close" onClick={() => setShowScanner(false)}>✕</button>
-                <h3 style={{ color: '#fff', marginTop: 0 }}>Đưa mã QR vào khung hình</h3>
-                <QRScanner onScanSuccess={handleScanSuccess} onScanFailure={handleScanFailure} />
-              </div>
-            )}
+            <ScannerModal />
+            <AlreadyCheckedInCard />
 
             {/* Booking Result */}
             {booking && (
@@ -293,7 +412,15 @@ const StaffCheckin = () => {
                     </div>
                   )}
                   {booking.foodsServed && (
-                    <div className="sc-checkedin-badge" style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308', borderColor: 'rgba(234,179,8,0.3)', marginTop: '8px' }}>
+                    <div
+                      className="sc-checkedin-badge"
+                      style={{
+                        background: 'rgba(234,179,8,0.1)',
+                        color: '#eab308',
+                        borderColor: 'rgba(234,179,8,0.3)',
+                        marginTop: '8px',
+                      }}
+                    >
                       🍿 Đã trả Bắp Nước lúc {formatDate(booking.foodsServedAt)}
                       {booking.foodsServedBy?.name && ` — bởi ${booking.foodsServedBy.name}`}
                     </div>
@@ -356,20 +483,32 @@ const StaffCheckin = () => {
                     onClick={handleCheckin}
                     disabled={checkinLoading}
                   >
-                    {checkinLoading ? (
-                      <><span className="sc-spinner"></span> Đang xử lý...</>
-                    ) : (
-                      <>✅ Xác Nhận Check-in</>
-                    )}
+                    {checkinLoading
+                      ? <><span className="sc-spinner" /> Đang xử lý...</>
+                      : <>✅ Xác Nhận Check-in</>}
                   </button>
                 )}
 
                 {/* Print Ticket Button */}
                 {(booking.status === 'confirmed' || booking.checkedIn) && (
                   <button
-                    className="sc-btn-print"
                     onClick={handlePrintTicket}
-                    style={{ background: '#3b82f6', color: '#fff', padding: '12px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px', width: '100%', fontSize: '15px' }}
+                    style={{
+                      background: '#3b82f6',
+                      color: '#fff',
+                      padding: '12px',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      marginTop: '12px',
+                      width: '100%',
+                      fontSize: '15px',
+                    }}
                   >
                     🖨️ In Vé Giấy
                   </button>
@@ -377,7 +516,8 @@ const StaffCheckin = () => {
 
                 {booking.status !== 'confirmed' && !booking.checkedIn && (
                   <div className="sc-warning-msg">
-                    ⚠️ Không thể check-in. Trạng thái vé: <strong>{getStatusInfo(booking.status).label}</strong>
+                    ⚠️ Không thể check-in. Trạng thái vé:{' '}
+                    <strong>{getStatusInfo(booking.status).label}</strong>
                   </div>
                 )}
               </div>
@@ -385,12 +525,12 @@ const StaffCheckin = () => {
           </div>
         )}
 
-        {/* F&B Kiosk Tab */}
+        {/* ── Tab: Quầy Bắp Nước ──────────────────────────────────────────── */}
         {activeTab === 'fnb' && (
           <div className="sc-content">
             <div className="sc-header">
-               <h1 className="sc-title">🍿 Quầy Bắp Nước</h1>
-               <p className="sc-subtitle">Quét mã QR trên vé để phục vụ nhanh chóng và chính xác</p>
+              <h1 className="sc-title">🍿 Quầy Bắp Nước</h1>
+              <p className="sc-subtitle">Quét mã QR trên vé để phục vụ nhanh chóng và chính xác</p>
             </div>
 
             <form className="sc-search-form" onSubmit={handleLookup}>
@@ -404,21 +544,21 @@ const StaffCheckin = () => {
                   onChange={(e) => setBookingCode(e.target.value.toUpperCase())}
                 />
                 <button type="submit" className="sc-search-btn" disabled={loading}>
-                  {loading ? <span className="sc-spinner"></span> : <>🔍 Tra Cứu</>}
+                  {loading ? <span className="sc-spinner" /> : <>🔍 Tra Cứu</>}
                 </button>
-                <button type="button" className="sc-search-btn" style={{ background: '#10b981' }} onClick={() => setShowScanner(true)}>
+                <button
+                  type="button"
+                  className="sc-search-btn"
+                  style={{ background: '#10b981' }}
+                  onClick={() => setShowScanner(true)}
+                >
                   📷 Quét QR
                 </button>
               </div>
             </form>
 
-            {showScanner && (
-              <div className="sc-scanner-modal">
-                <button className="sc-scanner-close" onClick={() => setShowScanner(false)}>✕</button>
-                <h3 style={{ color: '#fff', marginTop: 0 }}>Đưa mã QR vào khung hình</h3>
-                <QRScanner onScanSuccess={handleScanSuccess} onScanFailure={handleScanFailure} />
-              </div>
-            )}
+            <ScannerModal />
+            <AlreadyCheckedInCard />
 
             {booking && (
               <div className="sc-result-card">
@@ -432,25 +572,72 @@ const StaffCheckin = () => {
                 </div>
 
                 {(!booking.foods || booking.foods.length === 0) ? (
-                  <div className="sc-warning-msg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }}>
+                  <div
+                    className="sc-warning-msg"
+                    style={{
+                      background: 'rgba(239,68,68,0.1)',
+                      color: '#ef4444',
+                      borderColor: 'rgba(239,68,68,0.2)',
+                    }}
+                  >
                     ❌ Khách hàng không đặt Combo Bắp Nước nào trong vé này.
                   </div>
                 ) : (
                   <>
-                    <h3 style={{ color: '#fff', margin: '0 0 16px 0' }}>Chi tiết Combo Bắp Nước:</h3>
+                    <h3 style={{ color: '#fff', margin: '0 0 16px' }}>Chi tiết Combo Bắp Nước:</h3>
                     <div className="sc-info-card" style={{ marginBottom: '24px' }}>
                       {booking.foods.map((f, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: i === booking.foods.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
+                        <div
+                          key={i}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            padding: '12px 0',
+                            borderBottom:
+                              i === booking.foods.length - 1
+                                ? 'none'
+                                : '1px solid rgba(255,255,255,0.06)',
+                          }}
+                        >
                           <strong style={{ color: '#fff', fontSize: '16px' }}>{f.name}</strong>
-                          <span style={{ background: '#e71a0f', color: '#fff', padding: '2px 10px', borderRadius: '12px', fontWeight: 'bold' }}>x{f.quantity}</span>
+                          <span
+                            style={{
+                              background: '#e71a0f',
+                              color: '#fff',
+                              padding: '2px 10px',
+                              borderRadius: '12px',
+                              fontWeight: 'bold',
+                            }}
+                          >
+                            x{f.quantity}
+                          </span>
                         </div>
                       ))}
                     </div>
 
                     {booking.foodsServed ? (
-                      <div className="sc-checkedin-badge" style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308', borderColor: 'rgba(234,179,8,0.3)', textAlign: 'center', padding: '16px', fontSize: '16px' }}>
-                        🍿 Khách hàng <strong>ĐÃ NHẬN</strong> phần Combo Bắp Nước này lúc {formatDate(booking.foodsServedAt)}. <br/>
-                        <small style={{ color: 'rgba(234,179,8,0.7)', marginTop: '6px', display: 'block' }}>Vui lòng không giao lại (Trừ khi có yêu cầu đặc biệt của Quản lý).</small>
+                      <div
+                        className="sc-checkedin-badge"
+                        style={{
+                          background: 'rgba(234,179,8,0.1)',
+                          color: '#eab308',
+                          borderColor: 'rgba(234,179,8,0.3)',
+                          textAlign: 'center',
+                          padding: '16px',
+                          fontSize: '16px',
+                        }}
+                      >
+                        🍿 Khách hàng <strong>ĐÃ NHẬN</strong> phần Combo Bắp Nước này lúc{' '}
+                        {formatDate(booking.foodsServedAt)}.<br />
+                        <small
+                          style={{
+                            color: 'rgba(234,179,8,0.7)',
+                            marginTop: '6px',
+                            display: 'block',
+                          }}
+                        >
+                          Vui lòng không giao lại (Trừ khi có yêu cầu đặc biệt của Quản lý).
+                        </small>
                       </div>
                     ) : (
                       <button
@@ -459,11 +646,9 @@ const StaffCheckin = () => {
                         onClick={handleServeFoods}
                         disabled={fnbLoading || booking.status !== 'confirmed'}
                       >
-                        {fnbLoading ? (
-                          <><span className="sc-spinner"></span> Đang xử lý...</>
-                        ) : (
-                          <>🍿 XÁC NHẬN ĐÃ TRẢ KHÁCH</>
-                        )}
+                        {fnbLoading
+                          ? <><span className="sc-spinner" /> Đang xử lý...</>
+                          : <>🍿 XÁC NHẬN ĐÃ TRẢ KHÁCH</>}
                       </button>
                     )}
                   </>
@@ -473,12 +658,34 @@ const StaffCheckin = () => {
           </div>
         )}
 
-        {/* Today Tab */}
+        {/* ── Tab: Check-in Hôm Nay ───────────────────────────────────────── */}
         {activeTab === 'today' && (
           <div className="sc-content">
             <div className="sc-header">
               <h1 className="sc-title">📋 Danh Sách Check-in Hôm Nay</h1>
-              <p className="sc-subtitle">Cập nhật mỗi 30 giây • {todayCheckins.length} vé đã check-in</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <p className="sc-subtitle" style={{ margin: 0 }}>
+                  Cập nhật mỗi 30 giây • {todayCheckins.length} vé đã check-in
+                </p>
+                <button
+                  onClick={fetchTodayCheckins}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: '#fff',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  🔄 Làm mới
+                </button>
+              </div>
             </div>
 
             {todayCheckins.length === 0 ? (
@@ -525,7 +732,7 @@ const StaffCheckin = () => {
         )}
       </main>
 
-      {/* Shift Report Modal */}
+      {/* ── Shift Report Modal ──────────────────────────────────────────────── */}
       {showShiftReport && shiftData && (
         <div className="sc-modal-overlay">
           <div className="sc-modal-content">
@@ -533,31 +740,35 @@ const StaffCheckin = () => {
             <div className="sc-shift-report">
               <p>Nhân viên: <strong style={{ color: '#fff' }}>{shiftData.staffName}</strong></p>
               <div className="sc-shift-stats">
-                 <div className="sc-shift-stat-item">
-                   <span className="sc-shift-stat-icon">🎫</span>
-                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                     <span className="sc-shift-stat-value">{shiftData.checkedInCount}</span>
-                     <span className="sc-shift-stat-label">Vé đã soát</span>
-                   </div>
-                 </div>
-                 <div className="sc-shift-stat-item">
-                   <span className="sc-shift-stat-icon">🍿</span>
-                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                     <span className="sc-shift-stat-value">{shiftData.foodsServedCount}</span>
-                     <span className="sc-shift-stat-label">Combo đã giao</span>
-                   </div>
-                 </div>
+                <div className="sc-shift-stat-item">
+                  <span className="sc-shift-stat-icon">🎫</span>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span className="sc-shift-stat-value">{shiftData.checkedInCount}</span>
+                    <span className="sc-shift-stat-label">Vé đã soát</span>
+                  </div>
+                </div>
+                <div className="sc-shift-stat-item">
+                  <span className="sc-shift-stat-icon">🍿</span>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span className="sc-shift-stat-value">{shiftData.foodsServedCount}</span>
+                    <span className="sc-shift-stat-label">Combo đã giao</span>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="sc-modal-actions">
-              <button className="sc-btn-cancel" onClick={() => setShowShiftReport(false)}>Quay Lại Làm Việc</button>
-              <button className="sc-btn-confirm" onClick={handleConfirmLogout}>🚪 Xác Nhận Đăng Xuất</button>
+              <button className="sc-btn-cancel" onClick={() => setShowShiftReport(false)}>
+                Quay Lại Làm Việc
+              </button>
+              <button className="sc-btn-confirm" onClick={handleConfirmLogout}>
+                🚪 Xác Nhận Đăng Xuất
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Printable Ticket Section (Hidden on screen) */}
+      {/* ── Printable Ticket (ẩn trên màn hình, hiện khi in) ───────────────── */}
       {booking && (
         <div className="print-ticket">
           <div className="print-header">
@@ -566,11 +777,18 @@ const StaffCheckin = () => {
           </div>
           <div className="print-body">
             <p className="print-item"><strong>Phim:</strong> {booking.movieTitle}</p>
-            <p className="print-item"><strong>Khách hàng:</strong> {booking.user?.name || 'Vãng lai'} ({booking.user?.phone || 'No phone'})</p>
-            <p className="print-item"><strong>Suất chiếu:</strong> <br/>{formatDate(booking.showstartTime)}</p>
+            <p className="print-item">
+              <strong>Khách hàng:</strong> {booking.user?.name || 'Vãng lai'}{' '}
+              ({booking.user?.phone || 'No phone'})
+            </p>
+            <p className="print-item">
+              <strong>Suất chiếu:</strong><br />{formatDate(booking.showstartTime)}
+            </p>
             <p className="print-item"><strong>Rạp:</strong> {booking.cinemaName}</p>
             <p className="print-item"><strong>Phòng chiếu:</strong> {booking.roomName}</p>
-            <p className="print-item"><strong>Ghế:</strong> {booking.tickets?.map(t => t.seatLabel).join(', ')}</p>
+            <p className="print-item">
+              <strong>Ghế:</strong> {booking.tickets?.map((t) => t.seatLabel).join(', ')}
+            </p>
             {booking.foods?.length > 0 && (
               <div className="print-item print-foods">
                 <strong>Bắp Nước:</strong>

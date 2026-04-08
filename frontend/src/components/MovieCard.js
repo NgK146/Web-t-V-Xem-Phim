@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-
+import { useNavigate } from 'react-router-dom';
 
 const BACKEND_URL = process.env.REACT_APP_API_URL
   ? process.env.REACT_APP_API_URL.replace('/api', '')
@@ -24,7 +24,8 @@ const ClockIcon = () => (
 
 const MovieCard = ({ movie }) => {
   const navigate = useNavigate();
-  const [imgLoaded, setImgLoaded] = useState(false);  const { _id, title, poster, genre, rated, duration, avgRating } = movie;
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const { _id, title, poster, genre, rated, duration, avgRating } = movie;
 
   const posterSrc = poster
     ? (poster.startsWith('http') ? poster : `${BACKEND_URL}${poster}`)

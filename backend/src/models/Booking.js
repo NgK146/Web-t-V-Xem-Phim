@@ -34,6 +34,14 @@ const bookingSchema = new mongoose.Schema({
   cancelledAt:{ type: Date },
   cancelReason:{ type: String },
   reminderSent:{ type: Boolean, default: false },
+  // Check-in fields (for Staff QR scanner)
+  checkedIn:    { type: Boolean, default: false },
+  checkedInAt:  { type: Date },
+  checkedInBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  // F&B (Food & Beverage) served fields
+  foodsServed:    { type: Boolean, default: false },
+  foodsServedAt:  { type: Date },
+  foodsServedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
 bookingSchema.index({ user: 1, createdAt: -1 });

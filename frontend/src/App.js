@@ -18,6 +18,8 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import StaffRoute from './components/StaffRoute';
+import StaffCheckin from './pages/StaffCheckin';
 import ErrorBoundary from './components/ErrorBoundary';
 import MovieChatWidget from './components/MovieChatWidget';
 
@@ -76,6 +78,16 @@ function App() {
             <ProtectedRoute>
               <SeatSelection />
             </ProtectedRoute>
+          }
+        />
+
+        {/* Staff Routes */}
+        <Route
+          path="/staff-checkin"
+          element={
+            <StaffRoute>
+              <StaffCheckin />
+            </StaffRoute>
           }
         />
 

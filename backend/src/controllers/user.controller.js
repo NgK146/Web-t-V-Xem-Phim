@@ -52,7 +52,7 @@ export const getUserById = async (req, res, next) => {
 export const updateUserRole = async (req, res, next) => {
   try {
     const { role } = req.body;
-    if (!['user', 'admin'].includes(role)) throw new ApiError(400, 'Role không hợp lệ');
+    if (!['user', 'staff', 'admin'].includes(role)) throw new ApiError(400, 'Role không hợp lệ');
 
     const user = await User.findByIdAndUpdate(
       req.params.id,

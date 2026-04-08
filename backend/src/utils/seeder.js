@@ -4,7 +4,7 @@ import Cinema from '../models/Cinema.js';
 import Room from '../models/Room.js';
 import Showtime from '../models/Showtime.js';
 import Discount from '../models/Discount.js';
-import { adminData, moviesData, cinemasData, discountsData } from '../data/mockData.js';
+import { adminData, staffData, moviesData, cinemasData, discountsData } from '../data/mockData.js';
 
 const generateSeats = (rowsConfig) => {
   const seats = [];
@@ -47,6 +47,13 @@ export const seedDatabase = async () => {
     if (!existingAdmin) {
       await User.create(adminData);
       console.log(`✅ Admin user created: ${adminData.email}`);
+    }
+
+    // 2. Staff User (demo)
+    const existingStaff = await User.findOne({ email: staffData.email });
+    if (!existingStaff) {
+      await User.create(staffData);
+      console.log(`✅ Staff user created: ${staffData.email} / staff123`);
     }
 
     // 2. Movies

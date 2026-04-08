@@ -6,6 +6,14 @@ export const adminData = {
   isVerified: true
 };
 
+export const staffData = {
+  name: 'Nhân Viên Demo',
+  email: 'staff@cinema.com',
+  password: 'staff123',
+  role: 'staff',
+  isVerified: true
+};
+
 export const moviesData = [
   {
     title: 'Gặp Lại Chị Bầu',

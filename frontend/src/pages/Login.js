@@ -18,6 +18,8 @@ const Login = () => {
       toast.success('Đăng nhập thành công!');
       if (response.data.data.user.role === 'admin') {
         navigate('/admin');
+      } else if (response.data.data.user.role === 'staff') {
+        navigate('/staff-checkin');
       } else {
         navigate('/');
       }
