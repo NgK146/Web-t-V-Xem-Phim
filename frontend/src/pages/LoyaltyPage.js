@@ -10,6 +10,7 @@ const LoyaltyPage = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [redeeming, setRedeeming] = useState(false);
+    const [activeTab, setActiveTab] = useState('available');
 
     const fetchLoyalty = async () => {
         try {
@@ -43,8 +44,9 @@ const LoyaltyPage = () => {
     if (loading) return <div className="lp-loading">Đang tải chi tiết thành viên...</div>;
     if (!data) return <div className="lp-loading">Lỗi tải dữ liệu</div>;
 
-    const { user: userData, history, availableVouchers } = data;
+    const { user: userData, history, availableVouchers, usedVouchers = [] } = data;
     const points = userData.points || 0;
+    const totalAccumulatedPoints = userData.totalAccumulatedPoints || 0;
     const membership = userData.membership || 'Bronze';
 
     // Tier specific colors
@@ -62,17 +64,17 @@ const LoyaltyPage = () => {
         cardClass = 'lp-card-gold';
         nextTier = 'Platinum';
         pointsNeeded = 1000;
-        progress = Math.min((points / 1000) * 100, 100);
+        progress = Math.min((totalAccumulatedPoints / 1000) * 100, 100);
     } else if (membership === 'Silver') {
         cardClass = 'lp-card-silver';
         nextTier = 'Gold';
         pointsNeeded = 500;
-        progress = Math.min((points / 500) * 100, 100);
+        progress = Math.min((totalAccumulatedPoints / 500) * 100, 100);
     } else {
         cardClass = 'lp-card-bronze';
         nextTier = 'Silver';
         pointsNeeded = 200;
-        progress = Math.min((points / 200) * 100, 100);
+        progress = Math.min((totalAccumulatedPoints / 200) * 100, 100);
     }
 
     return (
@@ -108,28 +110,70 @@ const LoyaltyPage = () => {
                                 <div className="lp-progress-fill" style={{ width: `${progress}%` }}></div>
                             </div>
                             <div className="lp-progress-hint">
-                                Còn <strong>{Math.max(0, pointsNeeded - points)} điểm</strong> để lên hạng
+                                Tiến trình: <strong>{totalAccumulatedPoints}/{pointsNeeded} điểm</strong>
+                                {totalAccumulatedPoints < pointsNeeded && (
+                                    <span style={{marginLeft: 8, opacity: 0.8}}>(còn {pointsNeeded - totalAccumulatedPoints} điểm)</span>
+                                )}
+                            </div>
+                            <div className="lp-progress-disclaimer">
+                                💡 Điểm xài đổi quà sẽ không làm giảm tiến trình thăng hạng của bạn.
                             </div>
                         </div>
                     )}
 
                     <div className="lp-vouchers-section">
-                        <h3>Tủ đồ Voucher của tôi</h3>
-                        {availableVouchers.length === 0 ? (
-                            <div className="lp-empty-vouchers">Bạn chưa có voucher nào</div>
-                        ) : (
-                            <div className="lp-voucher-list">
-                                {availableVouchers.map(v => (
-                                    <div key={v._id} className="lp-voucher-item">
-                                        <div className="lp-v-icon">🎟️</div>
-                                        <div className="lp-v-info">
-                                            <div className="lp-v-code">{v.code}</div>
-                                            <div className="lp-v-desc">Giảm {v.value.toLocaleString()}đ</div>
-                                            <div className="lp-v-exp">HSD: {new Date(v.endDate).toLocaleDateString()}</div>
-                                        </div>
-                                    </div>
-                                ))}
+                        <div className="lp-vouchers-header">
+                            <h3>Tủ đồ Voucher của tôi</h3>
+                            <div className="lp-tabs">
+                                <button 
+                                    className={`lp-tab-btn ${activeTab === 'available' ? 'active' : ''}`}
+                                    onClick={() => setActiveTab('available')}
+                                >Khả dụng ({availableVouchers.length})</button>
+                                <button 
+                                    className={`lp-tab-btn ${activeTab === 'used' ? 'active' : ''}`}
+                                    onClick={() => setActiveTab('used')}
+                                >Đã sử dụng ({usedVouchers.length})</button>
                             </div>
+                        </div>
+
+                        {activeTab === 'available' && (
+                            availableVouchers.length === 0 ? (
+                                <div className="lp-empty-vouchers">Bạn chưa có voucher khả dụng nào</div>
+                            ) : (
+                                <div className="lp-voucher-list">
+                                    {availableVouchers.map(v => (
+                                        <div key={v._id} className="lp-voucher-item">
+                                            <div className="lp-v-icon">🎟️</div>
+                                            <div className="lp-v-info">
+                                                <div className="lp-v-code">{v.code}</div>
+                                                <div className="lp-v-desc">Giảm {v.value.toLocaleString()}đ</div>
+                                                <div className="lp-v-exp">HSD: {new Date(v.endDate).toLocaleDateString()}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )
+                        )}
+
+                        {activeTab === 'used' && (
+                            usedVouchers.length === 0 ? (
+                                <div className="lp-empty-vouchers">Không có lịch sử sử dụng voucher</div>
+                            ) : (
+                                <div className="lp-voucher-list">
+                                    {usedVouchers.map(v => (
+                                        <div key={v._id} className="lp-voucher-item used">
+                                            <div className="lp-v-icon">🎟️</div>
+                                            <div className="lp-v-info">
+                                                <div className="lp-v-code">{v.code}</div>
+                                                <div className="lp-v-desc">Giảm {v.value.toLocaleString()}đ</div>
+                                                <div className="lp-v-exp">
+                                                    {v.usedCount >= v.usageLimit ? 'Đã sử dụng' : 'Hết hạn'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )
                         )}
                     </div>
                 </div>
@@ -227,14 +271,27 @@ const LoyaltyPage = () => {
                 .lp-progress-text strong { color: #fff; }
                 .lp-progress-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
                 .lp-progress-fill { height: 100%; background: linear-gradient(90deg, #e50914, #ff4b4b); border-radius: 4px; transition: width 1s ease-in-out; }
-                .lp-progress-hint { text-align: right; font-size: 12px; color: #666; }
+                .lp-progress-hint { text-align: right; font-size: 13px; color: #a0a5bc; margin-bottom: 15px; }
+                .lp-progress-disclaimer { margin-top: 15px; font-size: 11.5px; color: rgba(255,255,255,0.6); font-style: italic; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px; display: inline-block; }
                 
                 /* VOUCHERS */
                 .lp-vouchers-section { margin-top: 30px; }
-                .lp-vouchers-section h3 { margin-bottom: 15px; font-size: 18px; color: #fff; }
+                .lp-vouchers-header { margin-bottom: 15px; }
+                .lp-vouchers-header h3 { margin-bottom: 10px; font-size: 18px; color: #fff; }
+                
+                .lp-tabs { display: flex; gap: 8px; background: rgba(255,255,255,0.03); padding: 4px; border-radius: 10px; width: fit-content; margin-bottom: 15px; }
+                .lp-tab-btn { background: transparent; border: none; color: #888; padding: 6px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s; }
+                .lp-tab-btn.active { background: rgba(255,255,255,0.1); color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+                
                 .lp-empty-vouchers { padding: 30px; text-align: center; background: rgba(255,255,255,0.02); border-radius: 16px; border: 1px dashed rgba(255,255,255,0.1); color: #888; }
                 .lp-voucher-list { display: flex; flex-direction: column; gap: 12px; }
-                .lp-voucher-item { display: flex; gap: 15px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 15px; border-radius: 12px; align-items: center; }
+                .lp-voucher-item { display: flex; gap: 15px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 15px; border-radius: 12px; align-items: center; transition: 0.2s; }
+                .lp-voucher-item:not(.used):hover { background: rgba(255,255,255,0.05); transform: translateY(-2px); border-color: rgba(229, 9, 20, 0.3); }
+                
+                .lp-voucher-item.used { filter: grayscale(1); opacity: 0.6; }
+                .lp-voucher-item.used .lp-v-code { text-decoration: line-through; color: #888; }
+                .lp-voucher-item.used .lp-v-exp { color: #f87171; font-weight: bold; }
+                
                 .lp-v-icon { width: 44px; height: 44px; background: rgba(229, 9, 20, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
                 .lp-v-code { font-weight: 800; color: #4ade80; font-size: 15px; margin-bottom: 2px; }
                 .lp-v-desc { font-size: 13px; color: #ddd; margin-bottom: 4px; }
