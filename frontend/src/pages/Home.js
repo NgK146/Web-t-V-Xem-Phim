@@ -406,7 +406,7 @@ const Home = () => {
           <nav className="cb-nav">
             <div className="cb-nav-link" onClick={() => { setFilters(f => ({ ...f, status: 'now_showing' })); scrollTo(movieSectionRef); }}>PHIM</div>
             <div className="cb-nav-link" onClick={() => setModal('cinemas')}>HỆ THỐNG RẠP</div>
-            <div className="cb-nav-link" onClick={() => navigate('/profile')}>THÀNH VIÊN</div>
+            <div className="cb-nav-link" onClick={() => navigate('/loyalty')}>THÀNH VIÊN</div>
             <div className="cb-nav-link" onClick={() => scrollTo(eventSectionRef)}>TIỆN ÍCH</div>
           </nav>
 
@@ -538,7 +538,7 @@ const Home = () => {
 
         <div className="cb-event-grid">
           {[
-            { bg: '#c2150a', label: 'CB Member', desc: 'Ưu đãi thành viên', action: () => navigate('/profile') },
+            { bg: '#c2150a', label: 'CB Member', desc: 'Ưu đãi thành viên', action: () => navigate('/loyalty') },
             { bg: '#e53e3e', label: 'Ticket Sale', desc: 'Giảm 30% thứ Tư', action: () => setModal('news') },
             { bg: '#ed8936', label: 'Combo 50%', desc: 'Bắp rang + nước', action: () => setModal('news') },
             { bg: '#222', label: 'New Movie', desc: 'Phim mới ra mắt', action: () => { setFilters(f => ({ ...f, status: 'coming_soon' })); scrollTo(movieSectionRef); } },

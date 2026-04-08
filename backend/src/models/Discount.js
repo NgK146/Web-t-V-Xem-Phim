@@ -11,6 +11,7 @@ const discountSchema = new mongoose.Schema({
   startDate:    { type: Date, required: true },
   endDate:      { type: Date, required: true },
   isActive:     { type: Boolean, default: true },
+  createdFor:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
 export default mongoose.model('Discount', discountSchema);

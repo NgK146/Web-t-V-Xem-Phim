@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
+import LoyaltyPage from './pages/LoyaltyPage';
 import BookingHistory from './pages/BookingHistory';
 import AdminDashboard from './pages/AdminDashboard';
 import PaymentSuccess from './pages/PaymentSuccess';
@@ -50,6 +51,15 @@ function App() {
           element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/loyalty"
+          element={
+            <ProtectedRoute>
+              <LoyaltyPage />
             </ProtectedRoute>
           }
         />
