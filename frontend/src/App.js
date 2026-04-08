@@ -19,6 +19,7 @@ import PaymentCancel from './pages/PaymentCancel';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import MovieChatWidget from './components/MovieChatWidget';
 
 function App() {
   return (
@@ -92,6 +93,7 @@ function App() {
         <Route path="/payment/success" element={<PaymentSuccess />} />
         <Route path="/payment/cancel" element={<PaymentCancel />} />
       </Routes>
+      <MovieChatWidget />
     </ErrorBoundary>
   );
 }
