@@ -72,6 +72,46 @@ const BookingHistory = () => {
         setCancelModal(null);
     };
 
+    const openDirections = (cinema) => {
+        const cinemaLat = cinema?.location?.lat;
+        const cinemaLng = cinema?.location?.lng;
+        const address = cinema?.address || '';
+
+        if (!cinemaLat || !cinemaLng) {
+            // Fallback searching location address using routing mode
+            if (address) {
+                toast.info("Đang dẫn đường tới rạp...");
+                const fallbackAddrUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=driving`;
+                window.open(fallbackAddrUrl, "_blank");
+            } else {
+                toast.error("Rạp chưa có dữ liệu vị trí.");
+            }
+            return;
+        }
+
+        if (!navigator.geolocation) {
+            const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${cinemaLat},${cinemaLng}&travelmode=driving`;
+            window.open(fallbackUrl, "_blank");
+            return;
+        }
+
+        toast.info("📍 Đang lấy vị trí của bạn...", { autoClose: 2500 });
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                const url = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${cinemaLat},${cinemaLng}&travelmode=driving`;
+                window.open(url, "_blank");
+            },
+            () => {
+                toast.warning("Không thể lấy vị trí, mở chế độ chỉ đường cơ bản.");
+                const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${cinemaLat},${cinemaLng}&travelmode=driving`;
+                window.open(fallbackUrl, "_blank");
+            }
+        );
+    };
+
     return (
         <div className="bh-root">
             <header className="bh-header">
@@ -181,6 +221,12 @@ const BookingHistory = () => {
                                             </button>
                                         )}
 
+                                        {b.showtime?.room?.cinema && (
+                                            <button className="bh-dir-btn" onClick={() => openDirections(b.showtime.room.cinema)}>
+                                                🗺️ Chỉ đường
+                                            </button>
+                                        )}
+
                                         {!isFinished && b.status === 'confirmed' && (
                                             <button 
                                                 className={`bh-cancel-btn ${!cancellationAllowed ? 'disabled' : ''}`} 
@@ -258,9 +304,11 @@ const BookingHistory = () => {
 
                 .bh-card-right { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 10px; }
                 .bh-status-badge { font-size: 11px; font-weight: 800; padding: 5px 12px; border: 1px solid; border-radius: 20px; text-transform: uppercase; }
-                .bh-qr-btn { background: rgba(229, 9, 20, 0.1); border: 1px solid rgba(229, 9, 20, 0.4); color: #e50914; padding: 10px 16px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600; }
+                .bh-qr-btn { background: rgba(229, 9, 20, 0.1); border: 1px solid rgba(229, 9, 20, 0.4); color: #e50914; padding: 10px 16px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600; width: 100%; text-align: center; }
                 .bh-qr-btn:hover { background: #e50914; color: #fff; }
-                .bh-cancel-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #f87171; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 600; }
+                .bh-dir-btn { background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.4); color: #4ade80; padding: 10px 16px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600; width: 100%; text-align: center; }
+                .bh-dir-btn:hover { background: #4ade80; color: #000; }
+                .bh-cancel-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #f87171; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 600; width: 100%; text-align: center; }
                 .bh-cancel-btn:hover:not(.disabled) { background: rgba(248, 113, 113, 0.1); border-color: #f87171; }
                 .bh-cancel-btn.disabled { opacity: 0.3; cursor: not-allowed; color: #888; border-color: #333; }
 
