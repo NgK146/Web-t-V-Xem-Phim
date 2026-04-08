@@ -80,156 +80,86 @@ const ResetPassword = () => {
   };
 
   return (
-    <div style={styles.page}>
-      {/* Background decorations */}
-      <div style={styles.bgDeco1} />
-      <div style={styles.bgDeco2} />
-
-      {/* Card */}
-      <div style={styles.card}>
-        {/* Logo */}
-        <Link to="/login" style={styles.logo}>
-          CINEBOOKING<span style={styles.logoStar}>*</span>
-        </Link>
-
-        <div style={styles.pageIcon}>🔒</div>
-        <h1 style={styles.title}>Đặt lại mật khẩu</h1>
-        <p style={styles.subtitle}>
-          Tạo mật khẩu mới an toàn cho tài khoản CineBooking của bạn.
-        </p>
-
-        <form onSubmit={handleSubmit(onSubmit)} style={styles.form}>
-          {/* Password field */}
-          <div style={styles.field}>
-            <label style={styles.label}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                style={{ marginRight: 6, verticalAlign: 'middle' }}>
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0110 0v4" />
-              </svg>
-              Mật khẩu mới
-            </label>
-            <div style={styles.passwordWrap}>
-              <input
-                type={showPass ? 'text' : 'password'}
-                {...register('password', {
-                  required: 'Mật khẩu là bắt buộc',
-                  minLength: { value: 6, message: 'Mật khẩu phải từ 6 ký tự trở lên' }
-                })}
-                placeholder="Tối thiểu 6 ký tự"
-                style={{
-                  ...styles.input,
-                  ...(errors.password ? styles.inputError : {})
-                }}
-                onFocus={e => {
-                  e.target.style.borderColor = errors.password ? '#E50914' : 'rgba(255,255,255,0.3)';
-                  e.target.style.background = 'rgba(255,255,255,0.08)';
-                }}
-                onBlur={e => {
-                  e.target.style.borderColor = errors.password ? 'rgba(229,9,20,0.8)' : 'rgba(255,255,255,0.1)';
-                  e.target.style.background = 'rgba(255,255,255,0.05)';
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPass(v => !v)}
-                style={styles.eyeBtn}
-                tabIndex={-1}
-                aria-label={showPass ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-              >
-                <EyeIcon open={showPass} />
-              </button>
-            </div>
-            <StrengthBar password={password} />
-            {errors.password && (
-              <span style={styles.errorMsg}>⚠ {errors.password.message}</span>
-            )}
+    <div className="auth-split-container">
+      {/* Left Panel */}
+      <div className="auth-split-left">
+        <div className="auth-left-content">
+          <Link to="/landing" className="auth-back-btn">← Trang chủ</Link>
+          <div className="auth-brand">
+            <div className="auth-brand-icon">🎬</div>
+            <h1 className="auth-brand-name">CineBooking</h1>
           </div>
-
-          {/* Confirm Password field */}
-          <div style={styles.field}>
-            <label style={styles.label}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                style={{ marginRight: 6, verticalAlign: 'middle' }}>
-                <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-              Xác nhận mật khẩu
-            </label>
-            <div style={styles.passwordWrap}>
-              <input
-                type={showConfirm ? 'text' : 'password'}
-                {...register('confirmPassword', {
-                  required: 'Vui lòng xác nhận mật khẩu',
-                  validate: val => val === password || 'Mật khẩu không khớp'
-                })}
-                placeholder="Nhập lại mật khẩu mới"
-                style={{
-                  ...styles.input,
-                  ...(errors.confirmPassword ? styles.inputError : {})
-                }}
-                onFocus={e => {
-                  e.target.style.borderColor = errors.confirmPassword ? '#E50914' : 'rgba(255,255,255,0.3)';
-                  e.target.style.background = 'rgba(255,255,255,0.08)';
-                }}
-                onBlur={e => {
-                  e.target.style.borderColor = errors.confirmPassword ? 'rgba(229,9,20,0.8)' : 'rgba(255,255,255,0.1)';
-                  e.target.style.background = 'rgba(255,255,255,0.05)';
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirm(v => !v)}
-                style={styles.eyeBtn}
-                tabIndex={-1}
-                aria-label={showConfirm ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-              >
-                <EyeIcon open={showConfirm} />
-              </button>
-            </div>
-            {errors.confirmPassword && (
-              <span style={styles.errorMsg}>⚠ {errors.confirmPassword.message}</span>
-            )}
+          <div className="auth-left-headline">
+            <h2>Thiết lập mật khẩu mới</h2>
+            <p>Bảo mật tài khoản của bạn bằng một mật khẩu mạnh và dễ nhớ.</p>
           </div>
-
-          {/* Tips */}
-          <div style={styles.tips}>
-            <div style={styles.tipsTitle}>💡 Mật khẩu mạnh cần có:</div>
-            {[
-              { label: 'Ít nhất 6 ký tự', ok: password.length >= 6 },
-              { label: 'Chữ hoa (A-Z)', ok: /[A-Z]/.test(password) },
-              { label: 'Số (0-9)', ok: /[0-9]/.test(password) },
-            ].map((tip, i) => (
-              <div key={i} style={{ ...styles.tipItem, color: password ? (tip.ok ? '#48bb78' : 'rgba(236,236,236,0.4)') : 'rgba(236,236,236,0.4)' }}>
-                {password && tip.ok ? '✓' : '○'} {tip.label}
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            style={{
-              ...styles.submitBtn,
-              opacity: isSubmitting ? 0.7 : 1,
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isSubmitting ? (
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <span style={styles.spinner} /> Đang cập nhật...
-              </span>
-            ) : (
-              '🔐 Cập nhật mật khẩu'
-            )}
-          </button>
-        </form>
-
-        <div style={styles.backLink}>
-          <Link to="/login" style={styles.link}>← Quay lại đăng nhập</Link>
         </div>
+        <div className="auth-left-deco">
+          <div className="deco-circle deco-c1" />
+          <div className="deco-circle deco-c2" />
+          <div className="deco-circle deco-c3" />
+        </div>
+      </div>
+
+      {/* Right Panel */}
+      <div className="auth-split-right">
+        <div className="auth-form-wrapper">
+          <div className="auth-form-header">
+            <h2 className="auth-form-title">Đặt lại mật khẩu</h2>
+            <p className="auth-form-subtitle">Nhập mật khẩu mới cho tài khoản của bạn</p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="auth-form-new">
+            <div className="auth-field">
+              <label className="auth-label">
+                <span className="auth-label-icon">🔐</span> Mật khẩu mới
+              </label>
+              <input
+                type="password"
+                {...register('password', { 
+                  required: 'Mật khẩu là bắt buộc',
+                  minLength: { value: 6, message: 'Mật khẩu phải từ 6 ký tự' }
+                })}
+                className={`auth-input ${errors.password ? 'auth-input-error' : ''}`}
+                placeholder="Nhập mật khẩu mới"
+              />
+              {errors.password && <span className="auth-error-msg">{errors.password.message}</span>}
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">
+                <span className="auth-label-icon">🔄</span> Xác nhận mật khẩu
+              </label>
+              <input
+                type="password"
+                {...register('confirmPassword', { 
+                  required: 'Vui lòng xác nhận mật khẩu',
+                  validate: (val) => {
+                    if (watch('password') != val) {
+                      return "Mật khẩu không khớp";
+                    }
+                  }
+                })}
+                className={`auth-input ${errors.confirmPassword ? 'auth-input-error' : ''}`}
+                placeholder="Nhập lại mật khẩu mới"
+              />
+              {errors.confirmPassword && <span className="auth-error-msg">{errors.confirmPassword.message}</span>}
+            </div>
+
+            <button type="submit" disabled={isSubmitting} className="auth-submit-btn">
+              {isSubmitting ? (
+                <><span className="auth-spinner" /> Đang cập nhật...</>
+              ) : (
+                '✅ Cập nhật thay đổi'
+              )}
+            </button>
+          </form>
+          
+          <div className="auth-switch">
+            <Link to="/login" className="auth-switch-link">
+              ← Trở về đăng nhập
+            </Link>
+          </div>        </div>
       </div>
 
       <div style={styles.bottomBrand}>

@@ -5,12 +5,6 @@ import api from '../api/axios';
 
 // Logic helpers for time-based status
 const isPastShowtime = (showtime) => new Date(showtime) < new Date();
-const canCancel = (showtime) => {
-    const showDate = new Date(showtime);
-    const now = new Date();
-    const diffHours = (showDate - now) / (1000 * 60 * 60);
-    return diffHours >= 2;
-};
 
 const BookingHistory = () => {
     const navigate = useNavigate();
@@ -20,7 +14,6 @@ const BookingHistory = () => {
     const [activeTab, setActiveTab] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [qrModal, setQrModal] = useState(null);
-    const [cancelModal, setCancelModal] = useState(null);
 
     useEffect(() => {
         const fetchBookings = async () => {
@@ -47,30 +40,17 @@ const BookingHistory = () => {
             
             if (!matchesSearch) return false;
 
-            if (activeTab === 'all') return true;
+            if (activeTab === 'all') return b.status !== 'cancelled';
             
             const isFinished = isPastShowtime(b.showstartTime);
             if (activeTab === 'upcoming') return b.status === 'confirmed' && !isFinished;
             if (activeTab === 'finished') return b.status === 'confirmed' && isFinished;
-            if (activeTab === 'cancelled') return b.status === 'cancelled';
             
-            return true;
+            return false;
         });
     }, [bookings, activeTab, searchQuery]);
 
-    const handleCancelConfirm = () => {
-        if (!cancelModal) return;
-        
-        // Simulating the 2h rule
-        if (!canCancel(cancelModal.showstartTime)) {
-            toast.error('Chỉ được hủy vé trước suất chiếu 2 tiếng!');
-            return;
-        }
-
-        setBookings(prev => prev.map(b => b._id === cancelModal._id ? { ...b, status: 'cancelled' } : b));
-        toast.success('Hủy vé thành công!');
-        setCancelModal(null);
-    };
+    // Cancel ticket feature has been removed
 
     const openDirections = (cinema) => {
         const cinemaLat = cinema?.location?.lat;
@@ -135,7 +115,7 @@ const BookingHistory = () => {
                 </div>
 
                 <div className="bh-tabs">
-                    {['all', 'upcoming', 'finished', 'cancelled'].map(tab => (
+                    {['all', 'upcoming', 'finished'].map(tab => (
                         <button 
                             key={tab} 
                             className={`bh-tab ${activeTab === tab ? 'active' : ''}`}
@@ -144,14 +124,12 @@ const BookingHistory = () => {
                             {tab === 'all' && 'Tất cả'}
                             {tab === 'upcoming' && 'Sắp chiếu'}
                             {tab === 'finished' && 'Đã xong'}
-                            {tab === 'cancelled' && 'Đã hủy'}
                             <span className="count">
                                 ({bookings.filter(b => {
                                     const isFinished = isPastShowtime(b.showstartTime);
-                                    if (tab === 'all') return true;
+                                    if (tab === 'all') return b.status !== 'cancelled';
                                     if (tab === 'upcoming') return b.status === 'confirmed' && !isFinished;
                                     if (tab === 'finished') return b.status === 'confirmed' && isFinished;
-                                    if (tab === 'cancelled') return b.status === 'cancelled';
                                     return false;
                                 }).length})
                             </span>
@@ -174,10 +152,10 @@ const BookingHistory = () => {
                             const poster = b.poster || (b.showtime?.movie?.poster) || 'https://via.placeholder.com/150';
                             const title = b.movieTitle || (b.showtime?.movie?.title) || 'Phim rạp';
                             const cinema = b.cinemaName || (b.showtime?.room?.cinema?.name) || 'Rạp';
+                            const cinemaAddress = b.showtime?.room?.cinema?.address || '';
                             const roomName = b.roomName || (b.showtime?.room?.name) || 'Phòng';
 
                             const isFinished = isPastShowtime(startTimeStr);
-                            const cancellationAllowed = canCancel(startTimeStr);
                             let statusLabel = 'Đã đặt';
                             let statusColor = '#4ade80';
 
@@ -187,7 +165,7 @@ const BookingHistory = () => {
                             } else if (isFinished) {
                                 statusLabel = 'Đã xem';
                                 statusColor = '#a0a5bc';
-                            } else if (!cancellationAllowed) {
+                            } else {
                                 statusLabel = 'Sắp chiếu';
                                 statusColor = '#facc15';
                             }
@@ -201,7 +179,7 @@ const BookingHistory = () => {
                                     <div className="bh-card-info">
                                         <div className="bh-movie-title">{title}</div>
                                         <div className="bh-meta">
-                                            <span>📍 {cinema}</span>
+                                            <span>📍 {cinema}{cinemaAddress ? ` - ${cinemaAddress}` : ''}</span>
                                             <span>🎭 {roomName}</span>
                                             <span>📅 {new Date(startTimeStr).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - {new Date(startTimeStr).toLocaleDateString('vi-VN')}</span>
                                             <span>💺 {b.tickets?.map(t => t.seatLabel).join(', ')}</span>
@@ -226,16 +204,6 @@ const BookingHistory = () => {
                                                 🗺️ Chỉ đường
                                             </button>
                                         )}
-
-                                        {!isFinished && b.status === 'confirmed' && (
-                                            <button 
-                                                className={`bh-cancel-btn ${!cancellationAllowed ? 'disabled' : ''}`} 
-                                                onClick={() => cancellationAllowed && setCancelModal(b)}
-                                                title={!cancellationAllowed ? 'Không thể hủy vé sát giờ chiếu' : ''}
-                                            >
-                                                {cancellationAllowed ? '🗑️ Hủy vé' : '🔒 Khóa hủy'}
-                                            </button>
-                                        )}
                                     </div>
                                 </div>
                             );
@@ -257,21 +225,8 @@ const BookingHistory = () => {
                 </div>
             )}
 
-            {cancelModal && (
-                <div className="bh-modal-overlay" onClick={() => setCancelModal(null)}>
-                    <div className="bh-modal" onClick={e => e.stopPropagation()}>
-                        <h3>Xác nhận hủy vé?</h3>
-                        <p>Bạn đang hủy vé <strong>{cancelModal.movieTitle}</strong>. Hành động này không thể hoàn tác.</p>
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                            <button className="bh-btn-secondary" onClick={() => setCancelModal(null)}>Quay lại</button>
-                            <button className="bh-btn-danger" onClick={handleCancelConfirm}>Xác nhận hủy</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             <style>{`
-                .bh-root { min-height: 100vh; background: #0c0e14; color: #fff; font-family: 'Outfit', sans-serif; padding-bottom: 50px; }
+                .bh-root { min-height: 100vh; background: #0c0e14; color: #fff; font-family: 'Inter', sans-serif; padding-bottom: 50px; }
                 .bh-header { display: flex; justify-content: space-between; padding: 20px 40px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(12, 14, 20, 0.8); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 100; }
                 .bh-logo { cursor: pointer; font-weight: 900; letter-spacing: 2px; font-size: 20px; }
                 .bh-back-btn { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 8px 16px; border-radius: 20px; cursor: pointer; }
@@ -308,9 +263,6 @@ const BookingHistory = () => {
                 .bh-qr-btn:hover { background: #e50914; color: #fff; }
                 .bh-dir-btn { background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.4); color: #4ade80; padding: 10px 16px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600; width: 100%; text-align: center; }
                 .bh-dir-btn:hover { background: #4ade80; color: #000; }
-                .bh-cancel-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #f87171; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 600; width: 100%; text-align: center; }
-                .bh-cancel-btn:hover:not(.disabled) { background: rgba(248, 113, 113, 0.1); border-color: #f87171; }
-                .bh-cancel-btn.disabled { opacity: 0.3; cursor: not-allowed; color: #888; border-color: #333; }
 
                 .bh-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
                 .bh-modal { background: #161a22; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 40px; text-align: center; max-width: 400px; width: 100%; }

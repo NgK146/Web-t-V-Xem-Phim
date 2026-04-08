@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import api from '../api/axios';
+import { io } from 'socket.io-client';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area,
   PieChart, Pie, Cell, Legend
@@ -11,6 +12,51 @@ const AdminReports = () => {
   const [advData, setAdvData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [flashCounters, setFlashCounters] = useState(false);
+
+  // Setup Socket listener for real-time updates
+  useEffect(() => {
+    const SOCKET_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+    const socket = io(SOCKET_URL, { withCredentials: true });
+
+    socket.on('admin_new_booking', (payload) => {
+      // payload = { amount, ticketCount, orderCode }
+      setAdvData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          realTime: {
+            ...prev.realTime,
+            todayRevenue: (prev.realTime.todayRevenue || 0) + payload.amount,
+            todayTickets: (prev.realTime.todayTickets || 0) + payload.ticketCount,
+            todayOrders: (prev.realTime.todayOrders || 0) + 1
+          }
+        };
+      });
+
+      setData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          stats: {
+            ...prev.stats,
+            totalRevenue: (prev.stats.totalRevenue || 0) + payload.amount,
+            totalBookings: (prev.stats.totalBookings || 0) + payload.ticketCount,
+          }
+        };
+      });
+      
+      // Trigger flash CSS
+      setFlashCounters(true);
+      setTimeout(() => setFlashCounters(false), 1500);
+
+      toast.success(`💰 Có đơn đặt vé mới: +${payload.amount.toLocaleString()} VNĐ`);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
@@ -90,8 +136,8 @@ const AdminReports = () => {
       {/* Stats Overview - Premium Light */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2.5rem' }}>
         {[
-          { label: 'TỔNG DOANH THU', value: `${stats.totalRevenue.toLocaleString()}đ`, color: '#e50914' },
-          { label: 'VÉ ĐÃ BÁN', value: stats.totalBookings.toLocaleString(), color: '#00c853' },
+          { label: 'TỔNG DOANH THU', value: `${stats.totalRevenue.toLocaleString()}đ`, color: '#e50914', flash: true },
+          { label: 'VÉ ĐÃ BÁN', value: stats.totalBookings.toLocaleString(), color: '#00c853', flash: true },
           { label: 'KHÁCH HÀNG', value: stats.totalUsers.toLocaleString(), color: '#2979ff' },
           { label: 'PHIM ĐÃ CHIẾU', value: stats.totalMovies.toLocaleString(), color: '#ff9100' }
         ].map((s, i) => (
@@ -106,7 +152,7 @@ const AdminReports = () => {
             <div style={{ fontSize: '12px', fontWeight: '700', color: '#6b7280', letterSpacing: '1px', marginBottom: '8px' }}>
               {s.label}
             </div>
-            <div style={{ fontSize: '30px', fontWeight: '800', color: '#111827', letterSpacing: '-1px' }}>
+            <div className={(flashCounters && s.flash) ? 'flash-title-update' : ''} style={{ fontSize: '30px', fontWeight: '800', color: '#111827', letterSpacing: '-1px', display: 'inline-block' }}>
                {s.value}
             </div>
           </div>
@@ -203,15 +249,15 @@ const AdminReports = () => {
              {/* Realtime Flash Stats */}
              <div style={{ background: 'linear-gradient(135deg, #111827, #1f2937)', borderRadius: '16px', padding: '24px', color: '#fff', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
                <div style={{ fontSize: '13px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>HÔM NAY - Live 🔴</div>
-               <div style={{ marginTop: '15px', fontSize: '32px', fontWeight: '800', color: '#4ade80' }}>
+               <div className={flashCounters ? 'flash-update' : ''} style={{ marginTop: '15px', fontSize: '32px', fontWeight: '800', color: '#4ade80', transition: 'all 0.3s' }}>
                  {advData.realTime.todayRevenue.toLocaleString()}đ
                </div>
                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                  <div>
+                  <div className={flashCounters ? 'flash-update' : ''}>
                     <div style={{ fontSize: '12px', color: '#9ca3af' }}>VÉ BÁN RA</div>
                     <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{advData.realTime.todayTickets}</div>
                   </div>
-                  <div>
+                  <div className={flashCounters ? 'flash-update' : ''}>
                     <div style={{ fontSize: '12px', color: '#9ca3af' }}>ĐƠN HÀNG</div>
                     <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{advData.realTime.todayOrders}</div>
                   </div>
@@ -278,6 +324,26 @@ const AdminReports = () => {
           </div>
         </div>
       )}
+      
+      <style>{`
+        .flash-update {
+          animation: adminFlash 1.5s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        @keyframes adminFlash {
+          0% { transform: scale(1); color: #4ade80; text-shadow: none; }
+          15% { transform: scale(1.15); color: #fff; text-shadow: 0 0 20px #4ade80, 0 0 40px #4ade80; }
+          100% { transform: scale(1); color: #4ade80; text-shadow: none; }
+        }
+        
+        .flash-title-update {
+          animation: adminFlashTitle 1.5s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        @keyframes adminFlashTitle {
+          0% { transform: scale(1); color: #111827; text-shadow: none; }
+          15% { transform: scale(1.15); color: #4ade80; text-shadow: 0 0 10px rgba(74, 222, 128, 0.5); }
+          100% { transform: scale(1); color: #111827; text-shadow: none; }
+        }
+      `}</style>
     </div>
   );
 };

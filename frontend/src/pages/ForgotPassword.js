@@ -21,109 +21,74 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div style={styles.page}>
-      {/* Background decorations */}
-      <div style={styles.bgDeco1} />
-      <div style={styles.bgDeco2} />
-
-      {/* Card */}
-      <div style={styles.card}>
-        {/* Logo */}
-        <Link to="/login" style={styles.logo}>
-          CINEBOOKING<span style={styles.logoStar}>*</span>
-        </Link>
-
-        {isSent ? (
-          /* ── Success State ── */
-          <div style={styles.successBox}>
-            <div style={styles.successIcon}>📬</div>
-            <h2 style={styles.successTitle}>Email đã được gửi!</h2>
-            <p style={styles.successText}>
-              Chúng tôi đã gửi liên kết đặt lại mật khẩu đến:
-            </p>
-            <div style={styles.emailBadge}>{sentEmail}</div>
-            <p style={styles.successHint}>
-              Kiểm tra hộp thư (kể cả mục Spam) và nhấp vào liên kết trong vòng{' '}
-              <strong style={{ color: '#E50914' }}>15 phút</strong>.
-            </p>
-            <Link to="/login" style={styles.submitBtn}>
-              ← Quay lại đăng nhập
-            </Link>
+    <div className="auth-split-container">
+      {/* Left Panel */}
+      <div className="auth-split-left">
+        <div className="auth-left-content">
+          <Link to="/landing" className="auth-back-btn">← Trang chủ</Link>
+          <div className="auth-brand">
+            <div className="auth-brand-icon">🎬</div>
+            <h1 className="auth-brand-name">CineBooking</h1>
           </div>
-        ) : (
-          /* ── Form State ── */
-          <>
-            {/* Icon */}
-            <div style={styles.pageIcon}>🔑</div>
+          <div className="auth-left-headline">
+            <h2>Tìm lại mật khẩu</h2>
+            <p>Đừng lo lắng, chúng tôi sẽ giúp bạn lấy lại quyền truy cập vào tài khoản của mình.</p>
+          </div>
+        </div>
+        <div className="auth-left-deco">
+          <div className="deco-circle deco-c1" />
+          <div className="deco-circle deco-c2" />
+          <div className="deco-circle deco-c3" />
+        </div>
+      </div>
 
-            <h1 style={styles.title}>Quên mật khẩu?</h1>
-            <p style={styles.subtitle}>
-              Nhập email đã đăng ký — chúng tôi sẽ gửi liên kết khôi phục ngay cho bạn.
-            </p>
+      {/* Right Panel */}
+      <div className="auth-split-right">
+        <div className="auth-form-wrapper">
+          <div className="auth-form-header">
+            <h2 className="auth-form-title">Quên mật khẩu</h2>
+            <p className="auth-form-subtitle">Nhập email đã đăng ký của bạn để nhận liên kết khôi phục.</p>
+          </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} style={styles.form}>
-              <div style={styles.field}>
-                <label style={styles.label}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                    style={{ marginRight: 6, verticalAlign: 'middle' }}>
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                    <polyline points="22,6 12,13 2,6" />
-                  </svg>
-                  Địa chỉ Email
+          {isSent ? (
+            <div className="success-message" style={{ textAlign: 'center', margin: '20px 0' }}>
+              <p style={{ marginBottom: '16px', color: '#333' }}>Vui lòng kiểm tra email của bạn để lấy liên kết đặt lại mật khẩu.</p>
+              <Link to="/login" className="auth-submit-btn" style={{ textDecoration: 'none', display: 'inline-block', lineHeight: '1' }}>Quay lại đăng nhập</Link>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit(onSubmit)} className="auth-form-new">
+              <div className="auth-field">
+                <label className="auth-label">
+                  <span className="auth-label-icon">📧</span> Email
                 </label>
                 <input
                   type="email"
-                  {...register('email', {
-                    required: 'Email là bắt buộc',
-                    pattern: { value: /^\S+@\S+\.\S+$/, message: 'Email không hợp lệ' }
-                  })}
-                  placeholder="example@email.com"
-                  style={{
-                    ...styles.input,
-                    ...(errors.email ? styles.inputError : {})
-                  }}
-                  onFocus={e => {
-                    e.target.style.borderColor = errors.email ? '#E50914' : 'rgba(255,255,255,0.3)';
-                    e.target.style.background = 'rgba(255,255,255,0.08)';
-                  }}
-                  onBlur={e => {
-                    e.target.style.borderColor = errors.email ? '#E50914cc' : 'rgba(255,255,255,0.1)';
-                    e.target.style.background = 'rgba(255,255,255,0.05)';
-                  }}
+                  {...register('email', { required: 'Email là bắt buộc' })}
+                  className={`auth-input ${errors.email ? 'auth-input-error' : ''}`}
+                  placeholder="Nhập email của bạn"
                 />
-                {errors.email && (
-                  <span style={styles.errorMsg}>⚠ {errors.email.message}</span>
-                )}
+                {errors.email && <span className="auth-error-msg">{errors.email.message}</span>}
               </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                style={{
-                  ...styles.submitBtn,
-                  opacity: isSubmitting ? 0.7 : 1,
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                }}
-              >
+              <button type="submit" disabled={isSubmitting} className="auth-submit-btn">
                 {isSubmitting ? (
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    <span style={styles.spinner} /> Đang gửi...
-                  </span>
+                  <><span className="auth-spinner" /> Đang gửi...</>
                 ) : (
-                  '📨 Gửi liên kết khôi phục'
+                  '🚀 Gửi yêu cầu'
                 )}
               </button>
             </form>
+          )}
 
-            <div style={styles.backLink}>
-              <Link to="/login" style={styles.link}>
-                ← Nhớ mật khẩu rồi? Đăng nhập
+          {!isSent && (
+            <div className="auth-switch">
+              <p>Nhớ mật khẩu?</p>
+              <Link to="/login" className="auth-switch-link" style={{ marginLeft: '6px' }}>
+                Đăng nhập ngay →
               </Link>
             </div>
-          </>
-        )}
-      </div>
+          )}
+        </div>      </div>
 
       {/* Bottom brand */}
       <div style={styles.bottomBrand}>

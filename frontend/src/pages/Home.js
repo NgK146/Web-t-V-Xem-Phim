@@ -443,7 +443,6 @@ const Home = () => {
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : 'U';
-
   return (
     <div className="cb-home">
       {/* ── MODALS ── */}
@@ -457,8 +456,7 @@ const Home = () => {
       <header className="cb-header" role="banner">
         <div className="cb-header-inner">
           {/* Logo */}
-          <div className="cb-logo" onClick={() => navigate('/')} role="link" aria-label="CineBooking trang chủ">
-            CINEBOOKING<span className="cb-logo-star">*</span>
+          <div className="cb-logo" onClick={() => navigate('/')} role="link" aria-label="CineBooking trang chủ">            CINEBOOKING<span className="cb-logo-star">*</span>
           </div>
 
           {/* Desktop Nav */}
@@ -504,8 +502,7 @@ const Home = () => {
               <button className="cb-auth-btn" onClick={() => navigate('/login')}>
                 Đăng Nhập
               </button>
-            )}
-          </div>
+            )}          </div>
         </div>
       </header>
 
@@ -513,8 +510,7 @@ const Home = () => {
       <div className="cb-icon-nav" role="navigation" aria-label="Điều hướng phụ">
         {ICON_NAV.map((item, i) => (
           <div key={i} className="cb-icon-item" onClick={item.action} role="button" tabIndex={0}
-            aria-label={item.label} onKeyDown={e => e.key === 'Enter' && item.action()}>
-            <div className="cb-icon-circle">{item.icon}</div>
+            aria-label={item.label} onKeyDown={e => e.key === 'Enter' && item.action()}>            <div className="cb-icon-circle">{item.icon}</div>
             <span className="cb-icon-label">{item.label}</span>
           </div>
         ))}
@@ -530,8 +526,7 @@ const Home = () => {
         <div className="cb-section-header">
           <div className="cb-section-line" />
           <h2 className="cb-section-title">
-            <span>✨</span> {user ? `PHIM DÀNH CHO ${user.name.split(' ').pop().toUpperCase()}` : 'GỢI Ý HÔM NAY'}
-          </h2>
+            <span>✨</span> {user ? `PHIM DÀNH CHO ${user.name.split(' ').pop().toUpperCase()}` : 'GỢI Ý HÔM NAY'}          </h2>
           <div className="cb-section-line" />
         </div>
 
@@ -691,8 +686,7 @@ const Home = () => {
             {item.icon}
             <span className="cb-bottom-nav-label">{item.label}</span>
           </div>
-        ))}
-      </nav>
+        ))}      </nav>
     </div>
   );
 };

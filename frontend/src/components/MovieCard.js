@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+
+import React, { useState } from 'react';
+
 
 const BACKEND_URL = process.env.REACT_APP_API_URL
   ? process.env.REACT_APP_API_URL.replace('/api', '')
@@ -23,8 +24,7 @@ const ClockIcon = () => (
 
 const MovieCard = ({ movie }) => {
   const navigate = useNavigate();
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const { _id, title, poster, genre, rated, duration, avgRating } = movie;
+  const [imgLoaded, setImgLoaded] = useState(false);  const { _id, title, poster, genre, rated, duration, avgRating } = movie;
 
   const posterSrc = poster
     ? (poster.startsWith('http') ? poster : `${BACKEND_URL}${poster}`)
@@ -87,8 +87,7 @@ const MovieCard = ({ movie }) => {
           <button className="overlay-btn btn-book" onClick={e => { e.stopPropagation(); navigate(`/movie/${_id}`); }}>
             Mua Vé
           </button>
-        </div>
-      </div>
+        </div>      </div>
 
       <div className="movie-card-info">
         <h3 className="movie-card-title" title={title}>{title}</h3>
@@ -98,8 +97,7 @@ const MovieCard = ({ movie }) => {
           </span>
           <span className="meta-duration">
             <ClockIcon /> {duration ? `${duration}ph` : '—'}
-          </span>
-        </div>
+          </span>        </div>
         <div className="movie-card-genre">
           {genre?.slice(0, 2).join(' · ')}
         </div>
