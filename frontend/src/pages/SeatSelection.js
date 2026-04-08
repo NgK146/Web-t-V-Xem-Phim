@@ -186,8 +186,7 @@ const SeatSelection = () => {
       // Orphan check: would removing this seat leave an orphan elsewhere?
       const proposed = selectedSeatIds.filter(s => s !== seatId);
       if (hasOrphanSeat(proposed)) {
-        toast.warning('Không thể bỏ ghế này vì sẽ để lại 1 ghế trống bị kẹp — vui lòng bỏ ghế kế bên trước!', { autoClose: 4000 });
-        return;
+        toast.warning('Lưu ý: Bạn đang để lại 1 ghế trống bị kẹp, nút Mua Vé sẽ bị khóa!', { autoClose: 3000 });
       }
       try {
         await bookingsApi.unlockSeats({ showtimeId: id, seatIds: [seatId] });
@@ -203,8 +202,7 @@ const SeatSelection = () => {
       // Orphan check: would adding this seat create an orphan elsewhere?
       const proposed = [...selectedSeatIds, seatId];
       if (hasOrphanSeat(proposed)) {
-        toast.warning('Không thể chọn ghế này vì sẽ để lại 1 ghế trống bị kẹp — hãy chọn thêm ghế kế bên!', { autoClose: 4000 });
-        return;
+        toast.warning('Lưu ý: Bạn đang để lại 1 ghế trống bị kẹp, nút Mua Vé sẽ bị khóa!', { autoClose: 3000 });
       }
       try {
         await bookingsApi.lockSeats({ showtimeId: id, seatIds: [seatId] });
@@ -314,6 +312,7 @@ const SeatSelection = () => {
   }).join(', ');
 
   const finalPrice = appliedDiscount ? Math.max(0, totalPrice - appliedDiscount.discountAmount) : totalPrice;
+  const isOrphanState = hasOrphanSeat(selectedSeatIds);
 
   return (
     <div className="ss-root">
@@ -477,6 +476,11 @@ const SeatSelection = () => {
 
         <div className="ss-checkout-right">
           <div className="ss-checkout-price-wrap">
+            {isOrphanState && (
+              <div style={{ color: '#f87171', fontSize: '12px', marginBottom: '4px', fontWeight: 'bold' }}>
+                * Không được để trống 1 ghế kẹp giữa
+              </div>
+            )}
             <div className="ss-checkout-price-label">Tổng thanh toán</div>
             {appliedDiscount ? (
               <div className="ss-checkout-price-discount-group">
@@ -489,8 +493,8 @@ const SeatSelection = () => {
           </div>
           {step === 1 ? (
             <button
-              className={`ss-checkout-btn ${selectedSeatIds.length > 0 ? 'active' : ''}`}
-              disabled={selectedSeatIds.length === 0}
+              className={`ss-checkout-btn ${selectedSeatIds.length > 0 && !isOrphanState ? 'active' : ''}`}
+              disabled={selectedSeatIds.length === 0 || isOrphanState}
               onClick={() => setStep(2)}
             >
               Tiếp tục 🍿
