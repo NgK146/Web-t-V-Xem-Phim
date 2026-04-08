@@ -14,6 +14,7 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     // Bạn có thể log lỗi vào các dịch vụ lưu trữ nhật ký ngoại lệ ở đây (VD: Sentry)
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+    this.setState({ error, errorInfo });
   }
 
   render() {
@@ -28,6 +29,11 @@ class ErrorBoundary extends React.Component {
                 Đội ngũ CineBooking đã ghi nhận sự cố này và đang tiến hành khắc phục.<br/>
                 Chúng tôi xin lỗi vì sự bất tiện này!
              </p>
+             {this.state.error && (
+               <div style={{color: 'white', background: 'rgba(255,0,0,0.2)', padding: 10, margin: '20px 0'}}>
+                 <code>{this.state.error.toString()}</code>
+               </div>
+             )}
              <button style={styles.btn} onClick={() => window.location.href = '/'}>
                 Quay Trở Về Trang Chủ
              </button>
