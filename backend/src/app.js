@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
@@ -33,6 +34,18 @@ export const io = new Server(httpServer, {
 // Bind io to app for controllers to access without cyclic dependencies
 app.set('io', io);
 
+// Rate Limiter: Chống spam 5 request / 10s
+const apiLimiter = rateLimit({
+  windowMs: 10 * 1000, // 10 seconds
+  max: 5, // Limit each IP to 5 requests per `window` (here, per 10 seconds)
+  message: {
+    success: false,
+    message: 'Bạn đã thao tác quá nhanh, vui lòng chờ 10 giây trước khi thử lại.'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
 // Middlewares
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 app.use(helmet({
@@ -42,6 +55,9 @@ app.use(morgan('dev'));
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Apply rate limiting to all requests
+app.use('/api', apiLimiter);
 
 // Routes
 app.use('/api/auth',      authRoutes);
