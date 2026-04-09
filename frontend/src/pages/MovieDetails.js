@@ -6,6 +6,32 @@ import { showtimesApi } from '../api/showtimes.api';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-toastify';
 
+// Helper: convert YouTube URL to embed URL
+const getYouTubeEmbedUrl = (url) => {
+  if (!url) return null;
+  let videoId = null;
+  // Match youtube.com/watch?v=ID
+  const watchMatch = url.match(/(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/);
+  if (watchMatch) videoId = watchMatch[1];
+  // Match youtu.be/ID
+  if (!videoId) {
+    const shortMatch = url.match(/(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (shortMatch) videoId = shortMatch[1];
+  }
+  // Match youtube.com/embed/ID
+  if (!videoId) {
+    const embedMatch = url.match(/(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+    if (embedMatch) videoId = embedMatch[1];
+  }
+  if (videoId) return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`;
+  return null;
+};
+
+const isYouTubeUrl = (url) => {
+  if (!url) return false;
+  return /youtube\.com|youtu\.be/.test(url);
+};
+
 const MovieDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -19,6 +45,7 @@ const MovieDetails = () => {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [showTrailer, setShowTrailer] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -134,6 +161,159 @@ const MovieDetails = () => {
                 <p><strong>Thể loại:</strong> {movie.genre.join(', ')}</p>
                 <p><strong>Ngôn ngữ:</strong> {movie.language}</p>
               </div>
+
+              {/* Trailer Section */}
+              {movie.trailer && (
+                <div style={{ marginTop: '40px' }}>
+                  <h3 style={{ 
+                    marginBottom: '20px', 
+                    fontSize: '24px', 
+                    borderBottom: '2px solid #E71A0F', 
+                    display: 'inline-block',
+                    paddingBottom: '5px' 
+                  }}>
+                    🎬 TRAILER
+                  </h3>
+
+                  {!showTrailer ? (
+                    <div 
+                      onClick={() => setShowTrailer(true)}
+                      style={{
+                        position: 'relative',
+                        width: '100%',
+                        maxWidth: '720px',
+                        aspectRatio: '16/9',
+                        borderRadius: '16px',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        background: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url(${posterSrc})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                        e.currentTarget.style.boxShadow = '0 12px 40px rgba(231,26,15,0.3)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
+                      }}
+                    >
+                      {/* Play button */}
+                      <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '80px',
+                        height: '80px',
+                        background: 'rgba(231, 26, 15, 0.9)',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 0 30px rgba(231,26,15,0.5), 0 0 60px rgba(231,26,15,0.2)',
+                        animation: 'pulse 2s infinite',
+                      }}>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </div>
+                      {/* Label */}
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '20px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        color: 'white',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        letterSpacing: '2px',
+                        textTransform: 'uppercase',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        ▶ Xem Trailer
+                      </div>
+                      <style>{`
+                        @keyframes pulse {
+                          0% { box-shadow: 0 0 30px rgba(231,26,15,0.5), 0 0 60px rgba(231,26,15,0.2); }
+                          50% { box-shadow: 0 0 40px rgba(231,26,15,0.7), 0 0 80px rgba(231,26,15,0.3); transform: translate(-50%, -50%) scale(1.08); }
+                          100% { box-shadow: 0 0 30px rgba(231,26,15,0.5), 0 0 60px rgba(231,26,15,0.2); }
+                        }
+                      `}</style>
+                    </div>
+                  ) : (
+                    <div style={{
+                      width: '100%',
+                      maxWidth: '720px',
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                      position: 'relative',
+                    }}>
+                      {isYouTubeUrl(movie.trailer) ? (
+                        <div style={{ position: 'relative', paddingTop: '56.25%', width: '100%' }}>
+                          <iframe
+                            src={getYouTubeEmbedUrl(movie.trailer)}
+                            title={`${movie.title} - Trailer`}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: '100%',
+                              border: 'none',
+                            }}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      ) : (
+                        <video 
+                          controls 
+                          autoPlay
+                          style={{ width: '100%', display: 'block' }}
+                          src={movie.trailer}
+                        >
+                          Trình duyệt không hỗ trợ phát video.
+                        </video>
+                      )}
+                      {/* Close button */}
+                      <button
+                        onClick={() => setShowTrailer(false)}
+                        style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
+                          background: 'rgba(0,0,0,0.7)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '36px',
+                          height: '36px',
+                          fontSize: '18px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          zIndex: 10,
+                          backdropFilter: 'blur(5px)',
+                          transition: 'all 0.2s',
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.background = '#E71A0F'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.7)'; }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style={{ marginTop: '40px' }}>
                 <h3 style={{ 

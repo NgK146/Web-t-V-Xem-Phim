@@ -181,6 +181,7 @@ const AdminDashboard = () => {
               >
                 <option value="">Tất cả vai trò</option>
                 <option value="user">Người dùng</option>
+                <option value="staff">Nhân viên</option>
                 <option value="admin">Quản trị viên</option>
               </select>
             </div>
@@ -221,6 +222,7 @@ const AdminDashboard = () => {
                             disabled={u._id === user?.id}
                           >
                             <option value="user">User</option>
+                            <option value="staff">Staff</option>
                             <option value="admin">Admin</option>
                           </select>
                         </td>
@@ -304,6 +306,11 @@ const AdminDashboard = () => {
                 <div className="stat-icon">👑</div>
                 <div className="stat-value">{users.filter(u => u.role === 'admin').length}</div>
                 <div className="stat-label">Quản Trị Viên</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">🛡️</div>
+                <div className="stat-value">{users.filter(u => u.role === 'staff').length}</div>
+                <div className="stat-label">Nhân Viên</div>
               </div>
               <div className="stat-card">
                 <div className="stat-icon">🔒</div>

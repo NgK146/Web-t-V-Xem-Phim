@@ -1,5 +1,7 @@
 import Review from '../models/Review.js';
 import Movie from '../models/Movie.js';
+import Booking from '../models/Booking.js';
+import Showtime from '../models/Showtime.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import { sendEmail } from '../services/email.service.js';
@@ -20,6 +22,19 @@ export const createReview = async (req, res, next) => {
       throw new ApiError(400, 'Bạn đã đánh giá phim này rồi');
     }
 
+    // Kiểm tra xem đã đặt vé cho phim này chưa
+    const showtimes = await Showtime.find({ movie: movieId });
+    const showtimeIds = showtimes.map(st => st._id);
+    const hasBooked = await Booking.findOne({ 
+      user: userId, 
+      status: 'confirmed',
+      showtime: { $in: showtimeIds } 
+    });
+
+    if (!hasBooked) {
+      throw new ApiError(403, 'Vui lòng hoàn tất đặt vé và trải nghiệm bộ phim tại rạp trước khi gửi đánh giá. Xin cảm ơn!');
+    }
+
     const review = await Review.create({
       movie: movieId,
       user: userId,
@@ -34,7 +49,7 @@ export const createReview = async (req, res, next) => {
     // Gửi email thông báo cho admin (không chặn response)
     const movieDoc = await Movie.findById(movieId).select('title');
     sendEmail({
-      to: process.env.ADMIN_EMAIL,
+      to: process.env.EMAIL_USER || 'ngockhoi141414@gmail.com',
       subject: `Đánh giá mới: ${movieDoc?.title || 'Phim'}`,
       template: 'reviewNotification',
       data: {

@@ -140,18 +140,34 @@ const SeatSelection = () => {
   // trapped between unavailable seats or the row boundary.
   const hasOrphanSeat = (proposedSelectedIds) => {
     if (!showtime || !roomSeats.length) return false;
+    if (proposedSelectedIds.length === 0) return false;
 
-    // Group room seats by row, sorted by number
+    // 1. Identify which rows have selected seats
+    const selectedRows = new Set();
+    proposedSelectedIds.forEach(sid => {
+      const s = roomSeats.find(x => x._id === sid);
+      if (s) selectedRows.add(s.row);
+    });
+
+    // 2. Group room seats by row, but ONLY for those selected rows
     const byRow = {};
     roomSeats.forEach(s => {
-      if (!byRow[s.row]) byRow[s.row] = [];
-      byRow[s.row].push(s);
+      if (selectedRows.has(s.row)) {
+        if (!byRow[s.row]) byRow[s.row] = [];
+        byRow[s.row].push(s);
+      }
     });
+    
+    // Sort seats in each row by number
     Object.values(byRow).forEach(arr => arr.sort((a, b) => a.number - b.number));
 
-    for (const seats of Object.values(byRow)) {
+    // 3. Check for orphans ONLY on selected rows
+    for (const rowLabel of selectedRows) {
+      const rowSeats = byRow[rowLabel];
+      if (!rowSeats) continue;
+
       // Build status array: 'free' | 'taken'
-      const states = seats.map(s => {
+      const states = rowSeats.map(s => {
         const sid = s._id;
         const st = seatStatuses[sid] || 'available';
         if (proposedSelectedIds.includes(sid)) return 'taken'; // selected
@@ -165,7 +181,14 @@ const SeatSelection = () => {
         if (states[i] === 'free') {
           const leftBlocked = i === 0 || states[i - 1] === 'taken';
           const rightBlocked = i === states.length - 1 || states[i + 1] === 'taken';
-          if (leftBlocked && rightBlocked) return true;
+          
+          if (leftBlocked && rightBlocked) {
+            // We found an orphan seat. 
+            // BUT: is this a NEW orphan seat created by our selection?
+            // Actually, for most cinema rules, even if it's old, you can't submit if it persists.
+            // But here, we specifically care about not letting the user leave one behind.
+            return true;
+          }
         }
       }
     }
