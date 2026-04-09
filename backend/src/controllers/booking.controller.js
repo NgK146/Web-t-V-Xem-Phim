@@ -146,13 +146,7 @@ export const createBooking = async (req, res, next) => {
     // Populate để trả về
     await booking[0].populate('showtime user');
 
-    // Gửi email xác nhận
-    sendEmail({
-      to: req.user.email,
-      subject: `Xác nhận đặt vé - ${booking[0].bookingCode}`,
-      template: 'bookingConfirm',
-      data: { booking: booking[0], user: req.user },
-    }).catch(console.error);
+    // Không gửi email ở đây nữa, chuyển việc gửi email sang lúc thanh toán thành công
 
     // Thông báo real-time cập nhật ghế
     io.to(showtimeId).emit('seats_updated', {

@@ -1,0 +1,87 @@
+[33m839693a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mHongocKhoi[m[33m)[m Xóa key API
+[33m51473c7[m Sửa key API chat và service chat
+[33m1cc47de[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m Merge pull request #19 from NgK146/tringuyenminhphu
+[33md43dc4f[m sua loi crash payment va hoan thien chuc nang thanh vien trung thanh
+[33ma954371[m Merge pull request #18 from NgK146/HongocKhoi
+[33m4dfbf73[m[33m ([m[1;31morigin/HongocKhoi[m[33m)[m Sửa lỗi giao diện + Point
+[33m1f57914[m xu ly loi conflict lay lai giao dien staff checkin
+[33m66332f4[m Resolve merge conflict in Home.js
+[33mf556f54[m[33m ([m[1;35mrefs/stash[m[33m)[m WIP on HongocKhoi: ebc444a sửa lỗi
+[33m8941665[m index on HongocKhoi: ebc444a sửa lỗi
+[33m540a6ed[m untracked files on HongocKhoi: ebc444a sửa lỗi
+[33m5f2e610[m Merge pull request #17 from NgK146/HongocKhoi
+[33mebc444a[m sửa lỗi
+[33m881f962[m Merge pull request #16 from NgK146/HaNguyenMinhHieu
+[33m1139d92[m Resolve merge conflicts, keep user's HEAD profiles & modern auth layouts
+[33md661268[m Thêm lại giao diện tích điểm
+[33m04730ae[m doi lai giao dien
+[33m999dec8[m Merge pull request #15 from NgK146/NguyenVanKhanhDuy
+[33mc931f6b[m Fix: Resolve conflicts by keeping local changes
+[33m96ab58e[m chỉnh uI đổi mật khẩu
+[33m17c1bd6[m sua loi payment module
+[33m4394b02[m Merge pull request #14 from NgK146/KhanhDuy
+[33m13c104e[m Merge pull request #13 from NgK146/HongocKhoi
+[33m029ea03[m Hoàn thành chức năng chỉ đường GG Maps
+[33m8d07cd1[m Merge pull request #12 from NgK146/HongocKhoi
+[33mefaa4cb[m Tối ưa lại chức năng chọn ghế phù  hợp hơn với người dùng
+[33m46bb657[m Merge pull request #11 from NgK146/HongocKhoi
+[33m7f2fd85[m Tích hợp AI chatbox Gemini
+[33mcc6566c[m Them role nhan vien
+[33m501f6a1[m backup before checkout
+[33m765848a[m[33m ([m[1;32mNguyenVanKhanhDuy[m[33m)[m Merge branch 'main' of https://github.com/NgK146/Web-t-V-Xem-Phim
+[33m7670868[m Merge pull request #10 from NgK146/HongocKhoi
+[33m16d1e44[m Hoàn thành sơ bộ Admin Analytics
+[33mce337a4[m chore: clean up node_modules and prepare for checkout
+[33m356a1ed[m Merge remote changes and fix conflicts in SeatSelection
+[33md6f32ed[m Hoan thanh chuc nang thanh toan bang payos, them combo do an uong
+[33mfdecb73[m Merge pull request #8 from NgK146/HongocKhoi
+[33m719f89f[m Hoàn thành chức năng gửi thông tin vé về email
+[33mc04e70a[m Hoàn thành chức năng gợi ý phim
+[33m3bddfb6[m WIP: đang làm dở
+[33macde6da[m Fix conflict: using localStorage for tokens
+[33meb5617f[m Update Docker + AWS + MongoDB Atlas
+[33m17bf628[m Them Docker va AWS
+[33m57fded6[m Hoàn thành chưcs năng hủy vé
+[33m6291fbd[m Hoàn thành chức năng tạo và gửi QRcode vé
+[33mc6ad177[m Sửa lỗi reload không thấy hiện số đặt ghế và áp mã giảm giá thanh toán thành công
+[33m96572aa[m Hoàn thành chức năng giữu ghế 5p và tối ưa khi load bắt đăng nhập lại
+[33mf895c5b[m[33m ([m[1;31morigin/tringuyenminhphu[m[33m)[m them profile cho user
+[33m3c39e6a[m remove temporary file
+[33m089643a[m chinh sua them/xoa/sua ve,rap, bao cao
+[33m6778206[m Chinh sua quan ly ve xem phim
+[33ma2aa19d[m nang cap chuc nang dat ve
+[33mf1fcb29[m sua loi booking controller
+[33m60932ff[m Delete package json du
+[33m6c62ee6[m[33m ([m[1;31morigin/HaNguyenMinhHieu[m[33m)[m Finalize merge and update dependencies for HaNguyenMinhHieu
+[33m4d2bf78[m Merge pull request #7 from NgK146/HaNguyenMinhHieu
+[33m998f7d7[m Merge main into HaNguyenMinhHieu and update project structure
+[33ma91b41f[m Merge branch 'main' into HaNguyenMinhHieu
+[33m86b2f01[m Merge pull request #6 from NgK146/tringuyenminhphu
+[33m102f7b3[m them phong chieu, suat chieu, ma giam gia cho admin
+[33m6a8db20[m Merge pull request #5 from NgK146/tringuyenminhphu
+[33m289c24f[m add cloudinary
+[33m8969244[m Merge pull request #4 from NgK146/tringuyenminhphu
+[33m885689c[m Add landing picture
+[33md8c7246[m Merge pull request #3 from NgK146/tringuyenminhphu
+[33mf6810fa[m create landing page for CineBooking
+[33maef1b4d[m clean main branch
+[33mfa9bf22[m Merge pull request #2 from NgK146/NguyenVanKhanhDuy
+[33m2653261[m[33m ([m[1;31morigin/NguyenVanKhanhDuy[m[33m)[m merge code seat booking, reviews and fix structure
+[33meeb8951[m Merge branch 'main' into NguyenVanKhanhDuy
+[33m8066907[m Hoàn thành chức năng chọn ghế
+[33maa02f8b[m Don dep cau truc thu muc day code dang nhap/dangky lai len main
+[33md1bde16[m Merge pull request #1 from NgK146/HoangBaoTran
+[33m5725887[m[33m ([m[1;31morigin/HoangBaoTran[m[33m)[m Merge branch 'main' into HoangBaoTran
+[33mf038793[m Cập nhật file README trước khi chuyển nhánh
+[33m1cff3e2[m thêm code payment.service và controller
+[33m0e6c756[m Chinh sửa chức năng đánh giá và giao diện người dùng
+[33mc8d1d2c[m Hoàn thành chức năng review và đánh giá
+[33mf8f6168[m Hoàn thành chức năng chọn phim đang chiếu/phim sắp chiếu và  chỉnh sửa lại giao diện user
+[33m5f92e90[m Hoàn thành chức năng tìm kiếm và lọc phim
+[33m6f4ec14[m Hoàn thành chức năng thêm/xóa/sửa
+[33m1ed55de[m  PhanQuyen
+[33md7b31a2[m  DangKy DangNhap Token QuenMatKhau
+[33m4a3a964[m them code co ban
+[33me71b63a[m Merge branch 'main' of https://github.com/NgK146/Web-t-V-Xem-Phim
+[33mcf20e16[m khoi tao du an cinema
+[33ma53421d[m Initial commit

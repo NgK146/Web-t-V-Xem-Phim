@@ -8,6 +8,7 @@ import { io } from 'socket.io-client';
 import { discountsApi } from '../api/discounts.api';
 import { paymentApi } from '../api/payment.api';
 import FoodSelection from '../components/FoodSelection';
+import api from '../api/axios';
 
 const LOCK_SECONDS = 5 * 60;
 
@@ -33,6 +34,25 @@ const SeatSelection = () => {
   const [discountCodeInput, setDiscountCodeInput] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(null);
   const [loadingDiscount, setLoadingDiscount] = useState(false);
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [userVouchers, setUserVouchers] = useState([]);
+
+  const fetchUserVouchers = async () => {
+    if (!user) return;
+    try {
+      const res = await api.get('/loyalty/me');
+      setUserVouchers(res.data.data.availableVouchers || []);
+    } catch {}
+  };
+
+  const handleOpenVoucherModal = () => {
+    if (selectedSeatIds.length === 0) {
+      toast.warning('Vui lòng chọn ghế trước khi dùng mã giảm giá');
+      return;
+    }
+    setShowVoucherModal(true);
+    fetchUserVouchers();
+  };
 
   // Reset discount if seats change
   useEffect(() => {
@@ -242,8 +262,9 @@ const SeatSelection = () => {
   };
 
   // ─── Booking & Discount ─────────────────────────────────────────────
-  const handleApplyDiscount = async () => {
-    if (!discountCodeInput.trim()) return;
+  const handleApplyDiscount = async (codeToApply) => {
+    const code = typeof codeToApply === 'string' ? codeToApply.trim() : discountCodeInput.trim();
+    if (!code) return;
     if (selectedSeatIds.length === 0) {
       toast.warning('Vui lòng chọn ghế trước khi áp dụng mã giảm giá');
       return;
@@ -256,12 +277,13 @@ const SeatSelection = () => {
         return sum + (sw?.price || showtime.basePrice || 0);
       }, 0);
 
-      const res = await discountsApi.validate({ code: discountCodeInput.trim(), amount: currentTotal });
+      const res = await discountsApi.validate({ code, amount: currentTotal });
       setAppliedDiscount({
         code: res.data.data.code,
         discountAmount: res.data.data.discountAmount
       });
       toast.success('Áp dụng mã giảm giá thành công!');
+      setShowVoucherModal(false);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không thể áp dụng mã');
       setAppliedDiscount(null);
@@ -455,6 +477,59 @@ const SeatSelection = () => {
         <div style={{ height: 120 }} />
       </main>
 
+      {/* ── VOUCHER MODAL ── */}
+      {showVoucherModal && (
+        <div className="ss-modal-overlay" onClick={() => setShowVoucherModal(false)}>
+          <div className="ss-modal-content ss-voucher-modal" onClick={e => e.stopPropagation()}>
+            <div className="ss-modal-header">
+              <h3>Chọn Mã Giảm Giá</h3>
+              <button className="ss-modal-close" onClick={() => setShowVoucherModal(false)}>&times;</button>
+            </div>
+            
+            <div className="ss-modal-body">
+              <div className="ss-manual-input">
+                <input
+                  type="text"
+                  placeholder="Nhập mã khác (ví dụ: SUMMER24)"
+                  value={discountCodeInput}
+                  onChange={e => setDiscountCodeInput(e.target.value.toUpperCase())}
+                />
+                <button 
+                  className="ss-manual-apply-btn"
+                  onClick={handleApplyDiscount}
+                  disabled={loadingDiscount || !discountCodeInput || selectedSeatIds.length === 0}
+                >
+                  {loadingDiscount ? 'Đang áp dụng...' : 'Áp dụng'}
+                </button>
+              </div>
+
+              <div className="ss-voucher-list-title">Voucher khả dụng của bạn</div>
+              {userVouchers.length === 0 ? (
+                <div className="ss-no-voucher">Bạn chưa có voucher khả dụng nào</div>
+              ) : (
+                <div className="ss-voucher-modal-list">
+                  {userVouchers.map(v => (
+                    <div 
+                      key={v._id} 
+                      className="ss-voucher-m-item"
+                      onClick={() => handleApplyDiscount(v.code)}
+                    >
+                      <div className="ss-vm-icon">🎟️</div>
+                      <div className="ss-vm-info">
+                        <strong>{v.code}</strong>
+                        <div className="ss-vm-desc">Giảm {v.value.toLocaleString()}đ</div>
+                        <small className="ss-vm-exp">HSD: {new Date(v.endDate).toLocaleDateString()}</small>
+                      </div>
+                      <button className="ss-vm-apply-btn">Chọn</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── CHECKOUT BAR ── */}
       <footer className="ss-checkout">
         <div className="ss-checkout-left">
@@ -477,22 +552,12 @@ const SeatSelection = () => {
                 <button className="ss-discount-remove" onClick={() => { setAppliedDiscount(null); setDiscountCodeInput(''); }}>✕</button>
               </div>
             ) : (
-              <>
-                <input
-                  type="text"
-                  placeholder="Nhập mã giảm giá..."
-                  className="ss-discount-input"
-                  value={discountCodeInput}
-                  onChange={e => setDiscountCodeInput(e.target.value.toUpperCase())}
-                />
-                <button
-                  className="ss-discount-btn"
-                  onClick={handleApplyDiscount}
-                  disabled={loadingDiscount || !discountCodeInput || selectedSeatIds.length === 0}
-                >
-                  {loadingDiscount ? '...' : 'Áp dụng'}
-                </button>
-              </>
+              <button 
+                className="ss-discount-modal-btn" 
+                onClick={handleOpenVoucherModal}
+              >
+                🎟️ Chọn / Nhập mã giảm giá
+              </button>
             )}
           </div>
         </div>
@@ -677,11 +742,13 @@ const SeatSelection = () => {
         /* Discount Styles */
         .ss-checkout-middle { display:flex; flex:1; justify-content:center; }
         .ss-discount-wrap { display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); padding:6px; border-radius:12px; }
-        .ss-discount-input { background:transparent; border:none; color:#fff; padding:8px 12px; width:150px; outline:none; font-size:14px; text-transform:uppercase; font-family:inherit; }
-        .ss-discount-input::placeholder { color:rgba(255,255,255,0.3); text-transform:none; }
-        .ss-discount-btn { background:rgba(255,255,255,0.1); border:none; color:#fff; padding:8px 16px; border-radius:8px; font-weight:600; cursor:pointer; transition:all 0.2s; font-size:13px; }
-        .ss-discount-btn:hover:not(:disabled) { background:rgba(255,255,255,0.2); }
-        .ss-discount-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        
+        .ss-discount-modal-btn { 
+          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff;
+          padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s;
+        }
+        .ss-discount-modal-btn:hover { background: rgba(231,26,15,0.15); border-color: rgba(231,26,15,0.3); color: #fca5a5; }
+        
         .ss-discount-applied { display:flex; align-items:center; gap:12px; padding:6px 14px; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3); border-radius:8px; }
         .ss-discount-badge { font-size:13px; font-weight:600; color:#4ade80; }
         .ss-discount-remove { background:rgba(255,255,255,0.1); border:none; border-radius:50%; width:24px; height:24px; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; transition:0.2s; }
@@ -690,6 +757,34 @@ const SeatSelection = () => {
         .ss-checkout-price-discount-group { display:flex; flex-direction:column; align-items:flex-end; }
         .ss-checkout-price.old { font-size:14px; color:rgba(255,255,255,0.4); text-decoration:line-through; font-weight:500; }
         .ss-checkout-price.new { font-size:28px; font-weight:900; color:#4ade80; }
+
+        /* Voucher Modal Styles */
+        .ss-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.2s; }
+        .ss-modal-content.ss-voucher-modal { background: #11111a; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; width: 100%; max-width: 450px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+        .ss-modal-header { padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); }
+        .ss-modal-header h3 { margin: 0; font-size: 18px; color: #fff; font-weight: 700; }
+        .ss-modal-close { background: none; border: none; color: #888; font-size: 28px; line-height: 1; cursor: pointer; transition: 0.2s; }
+        .ss-modal-close:hover { color: #f87171; }
+        .ss-modal-body { padding: 24px; max-height: 70vh; overflow-y: auto; }
+        
+        .ss-manual-input { display: flex; gap: 10px; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px dashed rgba(255,255,255,0.1); }
+        .ss-manual-input input { flex: 1; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); padding: 10px 14px; border-radius: 8px; color: #fff; }
+        .ss-manual-input input:focus { outline: none; border-color: #e71a0f; }
+        .ss-manual-apply-btn { background: #e71a0f; color: #fff; border: none; padding: 0 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .ss-manual-apply-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .ss-voucher-list-title { font-size: 14px; font-weight: 600; color: #888; margin-bottom: 12px; }
+        .ss-no-voucher { text-align: center; padding: 30px 0; color: #666; font-style: italic; background: rgba(255,255,255,0.02); border-radius: 10px; }
+        .ss-voucher-modal-list { display: flex; flex-direction: column; gap: 12px; }
+        .ss-voucher-m-item { display: flex; align-items: center; gap: 12px; padding: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; cursor: pointer; transition: 0.2s; }
+        .ss-voucher-m-item:hover { background: rgba(255,255,255,0.06); border-color: rgba(231,26,15,0.3); transform: translateY(-2px); }
+        .ss-vm-icon { width: 40px; height: 40px; background: rgba(231,26,15,0.1); font-size: 18px; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
+        .ss-vm-info { flex: 1; }
+        .ss-vm-info strong { display: block; font-size: 15px; color: #4ade80; margin-bottom: 2px; }
+        .ss-vm-desc { font-size: 13px; color: #ccc; }
+        .ss-vm-exp { font-size: 11px; color: #888; }
+        .ss-vm-apply-btn { background: rgba(255,255,255,0.1); border: none; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; transition: 0.2s; }
+        .ss-voucher-m-item:hover .ss-vm-apply-btn { background: #e71a0f; }
       `}</style>
     </div>
   );

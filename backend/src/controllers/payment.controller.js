@@ -1,4 +1,7 @@
 import Booking from '../models/Booking.js';
+import User from '../models/User.js';
+import { earnPoints } from '../services/loyalty.service.js';
+import { sendEmail } from '../services/email.service.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import { createPayOSPaymentLink, verifyPayOSWebhookData, getPayOSPaymentStatus } from '../services/payment.service.js';
@@ -67,6 +70,23 @@ export const payOSWebhook = async (req, res, next) => {
         booking.paidAt = new Date();
         await booking.save();
         
+        // Cấp điểm thưởng cho User và gửi email
+        if (booking.user) {
+          const user = await User.findById(booking.user);
+          if (user) {
+            await earnPoints(user, booking.finalPrice || booking.totalPrice, `Thanh toán mã vé ${booking.bookingCode || orderCode}`);
+            
+            // Gửi email xác nhận
+            await booking.populate('showtime');
+            sendEmail({
+              to: user.email,
+              subject: `Xác nhận đặt vé - ${booking.bookingCode}`,
+              template: 'bookingConfirm',
+              data: { booking: booking, user: user },
+            }).catch(console.error);
+          }
+        }
+        
         console.log(`[PayOS Webhook] Bắt được thanh toán thành công: ${orderCode}`);
 
         // Broadcast to Admin Dashboard safely
@@ -74,7 +94,7 @@ export const payOSWebhook = async (req, res, next) => {
         if (io) {
           io.emit('admin_new_booking', {
             amount: booking.totalPrice,
-            ticketCount: booking.seats.length,
+            ticketCount: booking.tickets?.length || 0,
             orderCode: booking.orderCode,
           });
         }
@@ -109,12 +129,29 @@ export const checkPaymentStatus = async (req, res, next) => {
           booking.paidAt = new Date();
           await booking.save();
           
+          // Cấp điểm thưởng cho User và gửi email
+          if (booking.user) {
+            const user = await User.findById(booking.user);
+            if (user) {
+              await earnPoints(user, booking.finalPrice || booking.totalPrice, `Thanh toán mã vé ${booking.bookingCode || orderCode}`);
+              
+              // Gửi email xác nhận
+              await booking.populate('showtime');
+              sendEmail({
+                to: user.email,
+                subject: `Xác nhận đặt vé - ${booking.bookingCode}`,
+                template: 'bookingConfirm',
+                data: { booking: booking, user: user },
+              }).catch(console.error);
+            }
+          }
+          
           // Broadcast to Admin Dashboard safely
           const io = req.app.get('io');
           if (io) {
             io.emit('admin_new_booking', {
               amount: booking.totalPrice,
-              ticketCount: booking.seats.length,
+              ticketCount: booking.tickets?.length || 0,
               orderCode: booking.orderCode,
             });
           }
