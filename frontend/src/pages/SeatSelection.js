@@ -99,6 +99,10 @@ const SeatSelection = () => {
       data.forEach(x => { s[x.id] = x.status; });
       setSeatStatuses(s);
     });
+    sock.on('room_full', data => {
+      toast.error(data);
+      navigate('/');
+    });
     sock.on('seats_updated', data => {
       setSeatStatuses(prev => {
         const u = { ...prev };
