@@ -4,6 +4,7 @@ import Cinema from '../models/Cinema.js';
 import Movie from '../models/Movie.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
+import { buildPagination } from '../utils/pagination.js';
 
 /**
  * @desc  Lấy danh sách tất cả suất chiếu (admin)
@@ -12,6 +13,11 @@ import { ApiError } from '../utils/ApiError.js';
  */
 export const getAdminShowtimes = async (req, res, next) => {
   try {
+    const { page = 1, limit = 5 } = req.query;
+
+    const { skip, pagination } = buildPagination(page, limit,
+      await Showtime.countDocuments());
+
     const showtimes = await Showtime.find()
       .populate('movie', 'title')
       .populate({
@@ -19,9 +25,11 @@ export const getAdminShowtimes = async (req, res, next) => {
         select: 'name',
         populate: { path: 'cinema', select: 'name' }
       })
-      .sort('-startTime');
+      .sort('-startTime')
+      .skip(skip)
+      .limit(Number(limit));
 
-    res.json(new ApiResponse(200, showtimes));
+    res.json(new ApiResponse(200, { showtimes, pagination }));
   } catch (error) { next(error); }
 };
 

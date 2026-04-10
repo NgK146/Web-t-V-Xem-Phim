@@ -10,6 +10,14 @@ export const initSeatSocket = (io) => {
      * Người dùng vào trang chọn ghế của 1 suất chiếu
      */
     socket.on('join_showtime', async (showtimeId) => {
+      const room = io.sockets.adapter.rooms.get(showtimeId);
+      const numClients = room ? room.size : 0;
+
+      if (numClients >= 200) {
+        socket.emit('room_full', 'Phòng đặt vé hiện đã đạt giới hạn 200 người. Vui lòng quay lại sau ít phút!');
+        return;
+      }
+
       socket.join(showtimeId);
 
       // Gửi trạng thái ghế hiện tại

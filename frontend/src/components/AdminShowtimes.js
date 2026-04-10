@@ -10,6 +10,9 @@ const AdminShowtimes = () => {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({});
+  const limit = 5;
 
   const [form, setForm] = useState({
     movie: '',
@@ -24,11 +27,12 @@ const AdminShowtimes = () => {
     setLoading(true);
     try {
       const [resShow, resMov, resCin] = await Promise.all([
-        api.get('/showtimes'),
+        api.get(`/showtimes?page=${page}&limit=${limit}`),
         api.get('/movies?limit=100'),
         api.get('/cinemas')
       ]);
-      setShowtimes(resShow.data.data);
+      setShowtimes(resShow.data.data.showtimes || []);
+      setPagination(resShow.data.data.pagination || {});
       setMovies(resMov.data.data.movies);
       setCinemas(resCin.data.data);
     } catch (err) {
@@ -36,7 +40,7 @@ const AdminShowtimes = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -192,6 +196,25 @@ const AdminShowtimes = () => {
           </table>
         )}
       </div>
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="admin-pagination">
+          <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+            ← Trước
+          </button>
+          {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => (
+            <button
+              key={p}
+              className={`page-btn ${p === page ? 'active' : ''}`}
+              onClick={() => setPage(p)}
+            >{p}</button>
+          ))}
+          <button className="page-btn" disabled={page === pagination.totalPages} onClick={() => setPage(p => p + 1)}>
+            Sau →
+          </button>
+        </div>
+      )}
 
       {showModal && (
         <div className="movie-modal-overlay">
