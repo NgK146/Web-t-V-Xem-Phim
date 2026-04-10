@@ -17,7 +17,7 @@ const AdminMovies = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({});
-  const limit = 10;
+  const limit = 5;
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
