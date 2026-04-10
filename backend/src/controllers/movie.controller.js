@@ -30,7 +30,7 @@ const uploadToCloudinary = (buffer, mimetype) => {
  */
 export const getMovies = async (req, res, next) => {
   try {
-    const { q, genre, status, rated, page = 1, limit = 12, sort = '-releaseDate' } = req.query;
+    const { q, genre, status, rated, page = 1, limit = 5, sort = '-releaseDate' } = req.query;
 
     const filter = {};
     if (q)       filter.$text = { $search: q };

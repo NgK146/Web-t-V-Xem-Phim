@@ -34,20 +34,21 @@ export const io = new Server(httpServer, {
 // Bind io to app for controllers to access without cyclic dependencies
 app.set('io', io);
 
-// Rate Limiter: Chống spam 5 request / 10s
-const apiLimiter = rateLimit({
+const limiter = rateLimit({
   windowMs: 10 * 1000, // 10 seconds
-  max: 5, // Limit each IP to 5 requests per `window` (here, per 10 seconds)
-  message: {
-    success: false,
-    message: 'Bạn đã thao tác quá nhanh, vui lòng chờ 10 giây trước khi thử lại.'
-  },
+  max: 100, // Limit each IP to 100 requests per 10 seconds
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: {
+    status: 429,
+    message: 'Quá nhiều yêu cầu từ IP này, vui lòng thử lại sau 10 giây',
+  },
 });
 
 // Middlewares
+app.use(limiter);
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
@@ -56,10 +57,8 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Apply rate limiting to all requests
-app.use('/api', apiLimiter);
-
 // Routes
+
 app.use('/api/auth',      authRoutes);
 app.use('/api/users',     userRoutes);
 app.use('/api/movies',    movieRoutes);

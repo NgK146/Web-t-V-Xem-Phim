@@ -353,7 +353,14 @@ const Home = () => {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    q: '', status: 'now_showing', genre: '', rated: '', page: 1, limit: 15,
+    q: '', status: 'now_showing', genre: '', rated: '', page: 1, limit: 5,
+  });
+
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 5,
   });
 
   const [recommendedMovies, setRecommendedMovies] = useState([]);
@@ -380,6 +387,12 @@ const Home = () => {
     try {
       const response = await moviesApi.getAll(filters);
       setMovies(response.data.data.movies || []);
+      setPagination(response.data.data.pagination || {
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0,
+        itemsPerPage: 5,
+      });
     } catch {
       toast.error('Không thể tải danh sách phim');
     } finally {
@@ -412,6 +425,14 @@ const Home = () => {
     setProfileOpen(false);
     await logout();
     navigate('/login');
+  };
+
+  const handlePageChange = (newPage) => {
+    setFilters(f => ({ ...f, page: newPage }));
+    // Wait for the next tick so the movies grid area updates, then scroll up
+    setTimeout(() => {
+      scrollTo(movieSectionRef);
+    }, 0);
   };
 
   const scrollTo = (ref) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -590,6 +611,42 @@ const Home = () => {
               : <div className="cb-no-movies"><span>🎭</span><p>Không tìm thấy phim phù hợp.</p></div>
           }
         </div>
+
+        {/* ── PAGINATION ── */}
+        {!loading && pagination.totalPages > 1 && (
+          <div className="cb-pagination" role="navigation" aria-label="Phân trang phim">
+            <button
+              className="cb-page-btn"
+              disabled={filters.page === 1}
+              onClick={() => handlePageChange(filters.page - 1)}
+              aria-label="Trang trước"
+            >
+              ← Trước
+            </button>
+
+            <div className="cb-page-numbers">
+              {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => (
+                <button
+                  key={p}
+                  className={`cb-page-btn ${p === filters.page ? 'active' : ''}`}
+                  onClick={() => handlePageChange(p)}
+                  aria-current={p === filters.page ? 'page' : undefined}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+
+            <button
+              className="cb-page-btn"
+              disabled={filters.page === pagination.totalPages}
+              onClick={() => handlePageChange(filters.page + 1)}
+              aria-label="Trang sau"
+            >
+              Sau →
+            </button>
+          </div>
+        )}
 
         {/* ── PROMOTIONS SECTION ── */}
         <div className="cb-section-header" style={{ marginTop: 48 }} ref={eventSectionRef}>
